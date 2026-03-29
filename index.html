@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>셩이와 봄이의 청지기 일지</title>
+<script>
+  var userAgent = navigator.userAgent.toLowerCase();
+  if (userAgent.indexOf('kakaotalk') > -1) {
+    if (userAgent.indexOf('android') > -1) {
+      // 1. 안드로이드 (갤럭시 등): 알아서 크롬 브라우저를 열어버림
+      location.href = 'intent://' + location.href.replace(/https?:\/\//i, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+    } else if (userAgent.indexOf('iphone') > -1 || userAgent.indexOf('ipad') > -1) {
+      // 2. 아이폰 (iOS): 애플 정책상 자동 전환이 안 돼서 안내 팝업을 띄움
+      alert("구글 보안 정책으로 인해 카카오톡 안에서는 로그인이 불가능합니다.\n\n화면 우측 하단의 [ 🧭 나침반 아이콘 ] 또는 [ Safari로 열기 ]를 눌러주세요!");
+    }
+  }
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 
 <!-- Firebase SDK -->
