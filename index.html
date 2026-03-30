@@ -133,15 +133,38 @@
     <script type="module" src="js/auth.js"></script>
 
     <script>
-      window.openAddModal = () => document.getElementById('add-modal').classList.add('open');
+      // 1. 모달 제어
+      window.openAddModal = () => {
+        document.getElementById('add-modal').classList.add('open');
+        document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
+        // 모달 열 때 현재 타입에 맞는 카테고리 로드
+        if(window.updateCatOptions) window.updateCatOptions();
+      };
+      
       window.closeModal = (id) => document.getElementById(id).classList.remove('open');
-      // Toast 전역 연결
+      
+      // 2. 수입/지출 타입 전환
+      window.setTxType = (type) => {
+        document.querySelectorAll('.type-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.type === type);
+        });
+        // 타입이 바뀔 때마다 카테고리 셀렉트 박스 갱신
+        if(window.updateCatOptions) window.updateCatOptions(type);
+      };
+
+      // 3. 토스트 알림
       window.showToast = (msg, type='ok') => {
         const t = document.getElementById('toast');
         if(!t) return;
         t.textContent = msg;
         t.className = `toast show ${type}`;
         setTimeout(() => t.classList.remove('show'), 2500);
+      };
+
+      // 4. 금액 입력 시 콤마 자동 생성 (ledger.js에 있지만 안전을 위해 인라인 배치 가능)
+      window.fmtInput = (v) => {
+        const n = parseInt(v.replace(/,/g,'')) || '';
+        return n ? n.toLocaleString('ko-KR') : '';
       };
     </script>
 </body>

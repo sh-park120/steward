@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, collection, doc, addDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-// Firebase 설정 (기존과 동일)
+// Firebase 설정
 const firebaseConfig = {
     apiKey: "AIzaSyAjK3PQBuu6J888-PSLpq-SW6zvZUux6dM",
     authDomain: "steward-260124.firebaseapp.com",
@@ -17,6 +17,7 @@ export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
+// 전역 상태 관리 객체
 export const state = {
     currentUser: null,
     currentProfile: null,
@@ -27,38 +28,24 @@ export const state = {
 };
 
 // ─────────────────────────────
-// 이모지 피커 설정 (추가된 부분)
+// 이모지 피커 설정 (최종 동기화 리스트)
 // ─────────────────────────────
 const EMOJI_LIST = [
-    // 😀 기본 표정 (호감형)
-    '😊', '😄', '😁', '🙂', '😉', '😎', '🤗', '😇', '😌',
-
-    // 💕 귀여움 / 친근함
-    '🥰', '😍', '😺', '🐶', '🐱', '🐻', '🐼', '🦊', '🐰', '🧸',
-
-    // ✨ 감성 / 분위기
-    '✨', '🌙', '⭐', '🌟', '💫', '🌈', '☁️', '🌸', '🌼', '🍀',
-
-    // 🔥 긍정 / 성장 / 에너지
-    '🔥', '💪', '🚀', '🌱', '🌿', '🏆', '🎯', '💡', '⚡', '📈',
-
-    // 🎨 취미 / 개성
-    '🎮', '🎧', '🎨', '🎬', '🎤', '🎸', '📚', '✏️', '🖌️', '📷',
-
-    // ☕ 일상 / 라이프스타일
-    '☕', '🍵', '🍜', '🍣', '🍰', '🍪', '🛋️', '🕯️', '🧺', '🛍️',
-
-    // 🌍 여행 / 자연
-    '🏖️', '🌊', '🏝️', '🌲', '🌳', '🏔️', '🌅', '🌄', '🚗', '✈️',
-
-    // 🧭 심플 아이콘 (깔끔한 프로필용)
-    '💬', '📌', '🧭', '📝', '📷', '🔖', '📎', '📦', '🔑', '🪪'
+    '😊', '😄', '😁', '🙂', '😉', '😎', '🤗', '😇', '😌', // 😀 기본 표정
+    '🥰', '😍', '😺', '🐶', '🐱', '🐻', '🐼', '🦊', '🐰', '🧸', // 💕 귀여움
+    '✨', '🌙', '⭐', '🌟', '💫', '🌈', '☁️', '🌸', '🌼', '🍀', // ✨ 감성
+    '🔥', '💪', '🚀', '🌱', '🌿', '🏆', '🎯', '💡', '⚡', '📈', // 🔥 에너지
+    '🎮', '🎧', '🎨', '🎬', '🎤', '🎸', '📚', '✏️', '🖌️', '📷', // 🎨 취미
+    '☕', '🍵', '🍜', '🍣', '🍰', '🍪', '🛋️', '🕯️', '🧺', '🛍️', // ☕ 일상
+    '🏖️', '🌊', '🏝️', '🌲', '🌳', '🏔️', '🌅', '🌄', '🚗', '✈️', // 🌍 여행
+    '💬', '📌', '🧭', '📝', '📷', '🔖', '📎', '📦', '🔑', '🪪'  // 🧭 아이콘
 ];
 
 export function initEmojiPicker() {
     const grid = document.getElementById('emoji-grid');
     if (!grid) return;
 
+    // 리스트 불일치 방지를 위해 항상 비우고 새로 그림
     grid.innerHTML = EMOJI_LIST.map(emoji => 
         `<span onclick="selectEmoji('${emoji}')">${emoji}</span>`
     ).join('');
@@ -67,17 +54,22 @@ export function initEmojiPicker() {
 window.toggleEmojiPicker = (e) => {
     if (e) e.stopPropagation();
     const picker = document.getElementById('emoji-picker');
+    if (!picker) return;
     picker.style.display = (picker.style.display === 'none') ? 'block' : 'none';
 };
 
 window.selectEmoji = (emoji) => {
-    document.getElementById('profile-emoji-display').textContent = emoji;
-    document.getElementById('profile-emoji').value = emoji;
-    document.getElementById('emoji-picker').style.display = 'none';
+    const display = document.getElementById('profile-emoji-display');
+    const input = document.getElementById('profile-emoji');
+    const picker = document.getElementById('emoji-picker');
+    
+    if (display) display.textContent = emoji;
+    if (input) input.value = emoji;
+    if (picker) picker.style.display = 'none';
 };
 
 // ─────────────────────────────
-// AUTH & PROFILE FUNCTIONS
+// AUTH FUNCTIONS
 // ─────────────────────────────
 
 window.signInGoogle = async () => {
@@ -100,14 +92,26 @@ window.signOutUser = async () => {
 onAuthStateChanged(auth, user => {
     state.currentUser = user;
     if (user) {
+        // 유저 아바타 업데이트
+        const avatarEl = document.getElementById('user-avatar-small');
+        if (avatarEl) {
+            avatarEl.textContent = user.displayName ? user.displayName[0] : '👤';
+            if (user.photoURL) avatarEl.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;">`;
+        }
+        
         showScreen('profile');
         loadProfiles();
-        // 로그인 성공 후 프로필 화면으로 올 때 이모지 피커 초기화
-        initEmojiPicker();
+        
+        // 프로필 화면 진입 시 이모지 피커 확실히 초기화
+        setTimeout(initEmojiPicker, 100);
     } else {
         showScreen('login');
     }
 });
+
+// ─────────────────────────────
+// PROFILE FUNCTIONS
+// ─────────────────────────────
 
 export async function loadProfiles() {
     try {
@@ -146,24 +150,30 @@ function renderProfiles() {
 
 window.createProfile = async () => {
     const nameInput = document.getElementById('profile-name');
-    const emojiInput = document.getElementById('profile-emoji'); // hidden input
+    const emojiInput = document.getElementById('profile-emoji');
     const name = nameInput.value.trim();
     const emoji = emojiInput.value || '😊';
 
     if (!name) return alert('이름을 입력해주세요');
 
-    await addDoc(collection(db, 'profiles'), {
-        uid: state.currentUser.uid,
-        name,
-        emoji,
-        createdAt: serverTimestamp()
-    });
+    try {
+        await addDoc(collection(db, 'profiles'), {
+            uid: state.currentUser.uid,
+            name,
+            emoji,
+            createdAt: serverTimestamp()
+        });
 
-    // 초기화
-    nameInput.value = '';
-    document.getElementById('profile-emoji-display').textContent = '😊';
-    document.getElementById('profile-emoji').value = '😊';
-    loadProfiles();
+        nameInput.value = '';
+        document.getElementById('profile-emoji-display').textContent = '😊';
+        document.getElementById('profile-emoji').value = '😊';
+        
+        if (window.showToast) window.showToast('새 프로필이 생성되었습니다!');
+        loadProfiles();
+    } catch (e) {
+        console.error(e);
+        alert('프로필 생성 실패');
+    }
 };
 
 window.selectProfile = (id) => {
@@ -173,6 +183,7 @@ window.selectProfile = (id) => {
     document.getElementById('current-profile-name').textContent = state.currentProfile.name;
     document.getElementById('current-profile-emoji').textContent = state.currentProfile.emoji;
     
+    // app.js의 데이터 구독 시작
     if (window.initAppData) {
         window.initAppData();
     }
@@ -182,9 +193,18 @@ window.deleteProfile = async (id, e) => {
     e.stopPropagation();
     if (!confirm('프로필과 관련된 모든 데이터가 삭제됩니다. 계속하시겠습니까?')) return;
     
-    await deleteDoc(doc(db, 'profiles', id));
-    loadProfiles();
+    try {
+        await deleteDoc(doc(db, 'profiles', id));
+        if (window.showToast) window.showToast('프로필이 삭제되었습니다.', 'warn');
+        loadProfiles();
+    } catch (e) {
+        console.error(e);
+    }
 };
+
+// ─────────────────────────────
+// UI HELPERS
+// ─────────────────────────────
 
 export function showScreen(name) {
     const screens = ['login', 'profile', 'app'];
@@ -193,6 +213,12 @@ export function showScreen(name) {
         if (el) el.style.display = (s === name) ? '' : 'none';
     });
 }
+
+window.backToProfiles = () => {
+    // 실시간 구독 해제 로직이 app.js에 있다면 호출 필요
+    showScreen('profile');
+    loadProfiles();
+};
 
 // 화면 바깥 클릭 시 이모지 피커 닫기
 document.addEventListener('click', (e) => {
