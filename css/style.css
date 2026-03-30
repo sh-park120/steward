@@ -28,7 +28,7 @@ body {
 .app-version {
   position: fixed;
   top: 12px;
-  left: 16px;
+  right: 16px;
   font-size: 10px;          /* 아주 작은 크기 */
   color: var(--muted);      /* 은은한 회색조 */
   font-family: 'Gowun Dodum', sans-serif;
