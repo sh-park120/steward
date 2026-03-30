@@ -292,3 +292,4 @@ window.deleteSubBudget = async (cat, subName) => {
         alert("항목 삭제에 실패했습니다.");
     }
 };
+window.renderBudget = renderBudget;
