@@ -95,66 +95,125 @@
   });
 
 // ══════════════════════════════════════════════════════
-//  PROFILES (수정 제안)
-// ══════════════════════════════════════════════════════
-async function loadProfiles() {
-  try {
-    if (!currentUser) return; // 사용자가 없으면 중단
+  //  PROFILES
+  // ══════════════════════════════════════════════════════
 
-    const uid = currentUser.uid;
-    // 인덱스 생성이 완료되어야 아래 쿼리가 작동합니다.
-    const q = query(
-      collection(db, 'profiles'), 
-      where('uid', '==', uid), 
-      orderBy('createdAt', 'asc') // 정렬 순서 명시 (asc 또는 desc)
-    );
+  // 1. 화면에 프로필 목록을 그리는 함수 (먼저 정의)
+  function renderProfiles() {
+    const list = document.getElementById('profile-list');
+    if (!list) return;
 
-    const snap = await getDocs(q);
-    // snap.docs.map 결과를 바로 할당하여 상태 불일치 방지
-    allProfiles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // 유저 아바타 표시 (UI 보완)
-    const avatarEl = document.getElementById('user-avatar-small');
-    if (avatarEl) {
-      avatarEl.textContent = currentUser.displayName ? currentUser.displayName[0] : '👤';
-      if (currentUser.photoURL) {
-        avatarEl.innerHTML = `<img src="${currentUser.photoURL}">`;
-      }
+    if (allProfiles.length === 0) {
+      list.innerHTML = '<p class="no-profile">아직 프로필이 없어요. 새 프로필을 만들어보세요!</p>';
+      return;
     }
 
-    renderProfiles();
-  } catch (error) {
-    console.error("데이터 로드 상세 에러:", error);
-    // 에러 메시지에 구체적인 원인 출력 (개발 단계용)
-    showToast('데이터 불러오기 실패: 콘솔의 인덱스 링크를 확인하세요', 'error');
+    list.innerHTML = allProfiles.map(p => `
+      <div class="profile-card" onclick="selectProfile('${p.id}')">
+        <div class="profile-avatar">${p.emoji}</div>
+        <div class="profile-info">
+          <div class="profile-pname">${p.name}</div>
+          <div class="profile-hint">탭해서 입장 →</div>
+        </div>
+        <button class="profile-delete" onclick="deleteProfile('${p.id}', event)">✕</button>
+      </div>
+    `).join('');
   }
-}
 
-// 프로필 생성 후 목록 갱신 방식 개선
-window.createProfile = async () => {
-  const name  = document.getElementById('profile-name').value.trim();
-  const emoji = document.getElementById('profile-emoji').value || '👤';
-  if (!name) { showToast('이름을 입력해주세요', 'warn'); return; }
-  
-  try {
-    await addDoc(collection(db, 'profiles'), {
-      uid: currentUser.uid,
-      name, 
-      emoji,
-      createdAt: serverTimestamp() // 반드시 서버 타임스탬프 사용
-    });
+  // 2. 데이터를 불러오는 함수
+  async function loadProfiles() {
+    try {
+      if (!currentUser) return;
+      const uid = currentUser.uid;
 
-    document.getElementById('profile-name').value  = '';
-    document.getElementById('profile-emoji').value = '';
+      // Firestore 쿼리 (인덱스 생성 확인 필요!)
+      const q = query(
+        collection(db, 'profiles'), 
+        where('uid', '==', uid), 
+        orderBy('createdAt', 'asc')
+      );
+      
+      const snap = await getDocs(q);
+      allProfiles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // 상단 유저 정보 업데이트
+      const avatarEl = document.getElementById('user-avatar-small');
+      if (avatarEl) {
+        avatarEl.textContent = currentUser.displayName ? currentUser.displayName[0] : '👤';
+        if (currentUser.photoURL) avatarEl.innerHTML = `<img src="${currentUser.photoURL}">`;
+      }
+
+      // 위에서 정의한 함수를 호출
+      renderProfiles();
+    } catch (error) {
+      console.error("데이터 로드 상세 에러:", error);
+      showToast('데이터 불러오기 실패 (콘솔의 링크를 확인하세요)', 'error');
+    }
+  }
+
+  window.createProfile = async () => {
+    const nameInput  = document.getElementById('profile-name');
+    const emojiInput = document.getElementById('profile-emoji');
+    const name  = nameInput.value.trim();
+    const emoji = emojiInput.value || '👤';
+
+    if (!name) { showToast('이름을 입력해주세요', 'warn'); return; }
+
+    try {
+      await addDoc(collection(db, 'profiles'), {
+        uid: currentUser.uid,
+        name, emoji,
+        createdAt: serverTimestamp()
+      });
+      
+      nameInput.value  = '';
+      emojiInput.value = '';
+      
+      await loadProfiles();
+      showToast(`${emoji} ${name} 프로필 생성 완료!`);
+    } catch (e) {
+      console.error(e);
+      showToast('프로필 생성 실패', 'error');
+    }
+  };
+
+  window.selectProfile = (id) => {
+    currentProfile = allProfiles.find(p => p.id === id);
+    if (!currentProfile) return;
+
+    document.getElementById('current-profile-name').textContent  = currentProfile.name;
+    document.getElementById('current-profile-emoji').textContent = currentProfile.emoji;
+    document.getElementById('user-display').textContent = currentUser.displayName || currentUser.email;
     
-    // 로컬 배열에 push하는 대신 서버 데이터를 다시 불러오는 것이 정렬 순서 보장에 안전함
-    await loadProfiles(); 
-    showToast(`${emoji} ${name} 프로필 생성 완료!`);
-  } catch (e) {
-    console.error(e);
-    showToast('프로필 생성 실패', 'error');
-  }
-};
+    subscribeData();
+    showScreen('app');
+    switchTab('ledger');
+  };
+
+  window.deleteProfile = async (id, e) => {
+    e.stopPropagation();
+    if (!confirm('이 프로필과 모든 데이터를 삭제할까요?')) return;
+    
+    try {
+      await deleteDoc(doc(db, 'profiles', id));
+      const txQ = query(collection(db, 'transactions'), where('profileId', '==', id));
+      const txSnap = await getDocs(txQ);
+      txSnap.forEach(d => deleteDoc(d.ref));
+
+      await loadProfiles();
+      showToast('프로필이 삭제되었습니다', 'warn');
+    } catch (e) {
+      console.error(e);
+      showToast('삭제 중 오류 발생', 'error');
+    }
+  };
+
+  window.backToProfiles = () => {
+    if (unsubTx)     { unsubTx();     unsubTx = null; }
+    if (unsubBudget) { unsubBudget(); unsubBudget = null; }
+    showScreen('profile');
+    loadProfiles();
+  };
   // ══════════════════════════════════════════════════════
   //  REALTIME DATA
   // ══════════════════════════════════════════════════════
