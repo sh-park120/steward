@@ -1,6 +1,6 @@
 import { db, state, showScreen } from './auth.js';
 import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+import { renderLedger } from './ledger.js';
 // 앱 시작 시 데이터 구독 및 초기화
 window.initAppData = () => {
     if (!state.currentProfile) return;
@@ -111,7 +111,3 @@ function renderBudget() {
     }).join('');
 }
 
-// 가계부 목록 렌더링 (steward_record 보완)
-function renderLedger() {
-    // 기존에 작성했던 refreshLedger 로직을 이 이름으로 통합하여 구현
-}

@@ -1,4 +1,4 @@
-import { db, state } from './firebase-config.js';
+import { db, state } from './auth.js';
 import { collection, addDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // 내역 추가 함수

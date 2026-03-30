@@ -180,12 +180,18 @@ window.selectProfile = (id) => {
     state.currentProfile = state.allProfiles.find(p => p.id === id);
     if (!state.currentProfile) return;
 
-    document.getElementById('current-profile-name').textContent = state.currentProfile.name;
-    document.getElementById('current-profile-emoji').textContent = state.currentProfile.emoji;
+    // 요소가 없어도 에러가 나지 않도록 안전하게 클래스 이름으로도 찾도록 보완합니다.
+    const nameEl = document.getElementById('current-profile-name') || document.querySelector('.topbar-name');
+    const emojiEl = document.getElementById('current-profile-emoji') || document.querySelector('.topbar-emoji');
+    
+    if (nameEl) nameEl.textContent = state.currentProfile.name;
+    if (emojiEl) emojiEl.textContent = state.currentProfile.emoji;
     
     // app.js의 데이터 구독 시작
-    if (window.initAppData) {
+    if (typeof window.initAppData === 'function') {
         window.initAppData();
+    } else {
+        console.error("initAppData 함수가 없습니다. app.js가 정상적으로 로드되었는지 확인하세요.");
     }
 };
 
