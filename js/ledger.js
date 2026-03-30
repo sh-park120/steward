@@ -35,10 +35,29 @@ export function renderLedger() {
     // 상단 요약 수치 계산
     const income  = txList.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = txList.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const balance = income - expense;
 
-    document.getElementById('ledger-income').textContent  = window.fmt(income);
-    document.getElementById('ledger-expense').textContent = window.fmt(expense);
-    document.getElementById('ledger-balance').textContent = window.fmt(income - expense);
+    // 수입, 지출 렌더링
+    const ledgerInc = document.getElementById('ledger-income');
+    const ledgerExp = document.getElementById('ledger-expense');
+    if (ledgerInc) ledgerInc.textContent = window.fmt(income);
+    if (ledgerExp) ledgerExp.textContent = window.fmt(expense);
+
+    // ✨ [수정됨] 잔액 부호 및 색상 처리 로직 적용
+    const ledgerBal = document.getElementById('ledger-balance');
+    if (ledgerBal) {
+        if (balance > 0) {
+            ledgerBal.textContent = '+' + window.fmt(balance);
+            ledgerBal.style.color = '#3b82f6'; // 파란색
+        } else if (balance < 0) {
+            // 하단의 window.fmt 함수가 이미 절댓값(Math.abs) 처리를 하므로 '-' 기호만 붙이면 됩니다.
+            ledgerBal.textContent = '-' + window.fmt(balance); 
+            ledgerBal.style.color = '#ef4444'; // 빨간색
+        } else {
+            ledgerBal.textContent = '0';
+            ledgerBal.style.color = '#ffffff'; // 흰색
+        }
+    }
 
     const container = document.getElementById('tx-list');
     if (txList.length === 0) {
@@ -69,44 +88,6 @@ export function renderLedger() {
     }).join('');
 }
 
-// 3. 내역 추가 (기존 로직 보완)
-window.addTransaction = async () => {
-    const type = document.querySelector('.type-btn.active')?.dataset.type;
-    const amountStr = document.getElementById('tx-amount').value;
-    const amount = parseInt(amountStr.replace(/,/g, ''));
-    const cat = document.getElementById('tx-cat').value;
-    const date = document.getElementById('tx-date').value;
-    const desc = document.getElementById('tx-desc')?.value || "";
-
-    if (!amount || !cat || !date) {
-        alert('모든 정보를 입력해주세요!');
-        return;
-    }
-
-    try {
-        await addDoc(collection(db, 'transactions'), {
-            profileId: state.currentProfile.id,
-            type, amount, category: cat, date, description: desc,
-            createdAt: serverTimestamp()
-        });
-        
-        // 입력창 초기화 및 모달 닫기
-        document.getElementById('tx-amount').value = '';
-        document.getElementById('tx-desc').value = '';
-        document.getElementById('add-modal').classList.remove('open');
-        if (window.showToast) window.showToast('기록되었습니다! ✓');
-    } catch (e) {
-        console.error(e);
-        alert('저장에 실패했습니다.');
-    }
-};
-
-window.deleteTx = async (id) => {
-    if (confirm('이 항목을 삭제할까요?')) {
-        await deleteDoc(doc(db, 'transactions', id));
-        if (window.showToast) window.showToast('삭제되었습니다.', 'warn');
-    }
-};
 
 // 4. 금액 포맷팅 헬퍼
 window.fmt = (n) => Math.abs(n).toLocaleString('ko-KR');

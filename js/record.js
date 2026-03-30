@@ -118,3 +118,4 @@ export async function deleteTx(id) {
 }
 window.addTransaction = addTransaction;
 window.updateSubCategoryOptions = updateSubCategoryOptions;
+window.deleteTx = deleteTx; // ✨ 이 줄이 꼭 있어야 HTML에서 삭제 버튼이 작동합니다!

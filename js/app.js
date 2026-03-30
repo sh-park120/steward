@@ -74,9 +74,21 @@ function renderDashboard() {
     if (dashInc) dashInc.textContent = window.fmt(income) + '원';
     if (dashExp) dashExp.textContent = window.fmt(expense) + '원';
     if (dashBal) {
-        dashBal.textContent = window.fmt(income - expense) + '원';
-        dashBal.className = 'dash-amount ' + (income - expense >= 0 ? 'income' : 'expense');
+        // 👇 잔액 색상 및 부호 처리 추가 👇
+    if (dashBal) {
+        const balance = income - expense;
+        if (balance > 0) {
+            dashBal.textContent = '+' + window.fmt(balance) + '원';
+            dashBal.style.color = '#3b82f6'; // 파란색
+        } else if (balance < 0) {
+            dashBal.textContent = '-' + window.fmt(Math.abs(balance)) + '원';
+            dashBal.style.color = '#ef4444'; // 빨간색
+        } else {
+            dashBal.textContent = '0원';
+            dashBal.style.color = '#ffffff'; // 흰색
+        }
     }
+}
 }
 
 // 1. 토글 상태 관리를 위한 전역 변수 추가
