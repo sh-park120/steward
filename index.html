@@ -121,8 +121,21 @@
                 <button class="type-btn active" data-type="income" onclick="setTxType('income')">＋ 수입</button>
                 <button class="type-btn" data-type="expense" onclick="setTxType('expense')">－ 지출</button>
             </div>
+            
             <div class="form-row"><label class="form-label">금액</label><input class="form-input" id="tx-amount" type="text" oninput="this.value=fmtInput(this.value)" inputmode="numeric"></div>
-            <div class="form-row"><label class="form-label">카테고리</label><select class="form-input" id="tx-cat"></select></div>
+            
+            <div class="form-row">
+                <label class="form-label">카테고리</label>
+                <select class="form-input" id="tx-cat" onchange="if(window.updateSubCategoryOptions) window.updateSubCategoryOptions()"></select>
+            </div>
+            
+            <div class="form-row" id="subcat-row">
+                <label class="form-label">세부항목</label>
+                <select class="form-input" id="tx-subcat" style="display: none;">
+                    <option value="">세부 항목 (선택)</option>
+                </select>
+            </div>
+
             <div class="form-row"><label class="form-label">메모</label><input class="form-input" id="tx-desc" type="text" placeholder="간단 메모"></div>
             <div class="form-row"><label class="form-label">날짜</label><input class="form-input" id="tx-date" type="date"></div>
             <button class="btn-submit" onclick="addTransaction()">기록하기</button>
@@ -137,11 +150,13 @@
     <script type="module" src="js/record.js"></script>
 
     <script>
+        // JS 모듈에서 작성한 함수를 전역(window)에서 쓸 수 있도록 연결
+        // (record.js에서 export한 함수들이 이미 전역 객체에 등록되어 있다고 가정합니다)
+        
         // 1. 모달 제어
         window.openAddModal = () => {
           document.getElementById('add-modal').classList.add('open');
           document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
-          // 모달 열 때 현재 타입에 맞는 카테고리 로드
           if(window.updateCatOptions) window.updateCatOptions();
         };
         
@@ -152,16 +167,14 @@
           document.querySelectorAll('.type-btn').forEach(b => {
             b.classList.toggle('active', b.dataset.type === type);
           });
-          // 타입이 바뀔 때마다 카테고리 셀렉트 박스 갱신
           if(window.updateCatOptions) window.updateCatOptions(type);
         };
 
-        // 👇👇 [여기에 새로 추가합니다!] 카테고리 목록 업데이트 함수 👇👇
+        // 🌟 카테고리 목록 업데이트 함수 (세부 항목 새로고침 로직 추가됨)
         window.updateCatOptions = (type) => {
-          // 함수가 호출될 때 type이 안 들어오면, 현재 선택된 버튼의 타입을 찾습니다.
           if (!type) {
               const activeBtn = document.querySelector('.type-btn.active');
-              type = activeBtn ? activeBtn.dataset.type : 'expense'; // 기본값은 지출(expense)
+              type = activeBtn ? activeBtn.dataset.type : 'expense'; 
           }
 
           const catSelect = document.getElementById('tx-cat');
@@ -169,18 +182,19 @@
 
           let options = [];
           
-          // 타입에 따라 카테고리 목록을 다르게 설정합니다.
           if (type === 'income') {
               options = ['월급', '용돈', '부수입', '상여금', '금융소득', '기타수입'];
           } else {
-              // 지출 카테고리 (예산 탭의 카테고리와 완벽히 일치하도록 설정!)
               options = ['식비', '카페', '교통', '쇼핑', '의료', '문화', '통신', '주거', '교육', '저축', '기타지출'];
           }
 
-          // 셀렉트 박스 안에 <option> 태그들로 변환해서 집어넣습니다.
           catSelect.innerHTML = options.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+          
+          // 메인 카테고리 옵션이 새로 렌더링 된 직후, 세부항목(subCategory) 목록도 맞물려서 갱신해줍니다.
+          if(window.updateSubCategoryOptions) {
+              window.updateSubCategoryOptions();
+          }
         };
-        // 👆👆 추가 끝 👆👆
 
         // 3. 토스트 알림
         window.showToast = (msg, type='ok') => {

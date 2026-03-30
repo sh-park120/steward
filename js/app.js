@@ -1,6 +1,7 @@
 import { db, state, showScreen } from './auth.js';
-import { collection, query, where, orderBy, onSnapshot, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, query, where, orderBy, onSnapshot, doc, setDoc, updateDoc, deleteField, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { renderLedger } from './ledger.js';
+
 // 앱 시작 시 데이터 구독 및 초기화
 window.initAppData = () => {
     if (!state.currentProfile) return;
@@ -76,67 +77,121 @@ function renderDashboard() {
         dashBal.textContent = window.fmt(income - expense) + '원';
         dashBal.className = 'dash-amount ' + (income - expense >= 0 ? 'income' : 'expense');
     }
-
-    // 카테고리별 지출 차트 (막대 그래프 형태)
-    //renderCategoryChart(monthTx);
 }
 
-// 💰 --- steward_plan (예산 계획 관리) ---
+// 1. 토글 상태 관리를 위한 전역 변수 추가
+window.expandedCats = window.expandedCats || {};
+
+// 카테고리 열기/닫기 토글 함수
+window.toggleCat = (cat) => {
+    window.expandedCats[cat] = !window.expandedCats[cat];
+    refreshAll(); // 상태 변경 후 UI 다시 그리기
+};
+
+// 💰 --- steward_plan (예산 계획 관리) 수정 ---
 function renderBudget() {
     const ym = state.currentMonth;
     const monthTx = state.transactions.filter(t => t.date && t.date.startsWith(ym));
     const container = document.getElementById('budget-list');
     if (!container) return;
 
-    // 카테고리 정의
     const expenseCategories = ['식비','카페','교통','쇼핑','의료','문화','통신','주거','교육','저축','기타지출'];
 
     container.innerHTML = expenseCategories.map(cat => {
         const key = `${ym}_${cat}`;
-        const budAmt = state.budgets[key]?.amount || 0;
+        const budgetData = state.budgets[key] || {};
+        const budAmt = budgetData.amount || 0;
+        const subCategories = budgetData.subCategories || {}; // 세부 항목 데이터
+        
         const spent = monthTx.filter(t => t.type === 'expense' && t.category === cat).reduce((s, t) => s + t.amount, 0);
         const pct = budAmt > 0 ? Math.min(100, Math.round((spent / budAmt) * 100)) : 0;
         const over = budAmt > 0 && spent > budAmt;
 
+        const isExpanded = window.expandedCats[cat];
+
+        // --- 세부 항목 UI 렌더링 ---
+        let subCatHtml = '';
+        if (isExpanded) {
+            const subCatKeys = Object.keys(subCategories);
+            
+            // 기존 등록된 세부 항목들 나열
+            const subListHtml = subCatKeys.map(subName => {
+                const subAmt = subCategories[subName];
+                
+                // 거래내역(Transactions)에 subCategory 필드가 있다면 실제 세부 항목 지출도 계산
+                const subSpent = monthTx.filter(t => t.type === 'expense' && t.category === cat && t.subCategory === subName).reduce((s, t) => s + t.amount, 0);
+
+                // HTML ID로 안전하게 사용하기 위해 공백 제거 (예: "회식 비" -> "회식비")
+                const safeSubName = subName.replace(/\s+/g, '');
+
+                return `
+                    <div class="sub-budget-row" style="display:flex; justify-content:space-between; align-items:center; margin: 6px 0 6px 12px; padding: 6px; border-left: 2px solid var(--accent); background: #fdfdfd;">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span class="sub-cat-name" style="font-size: 13px; color: #555; font-weight: bold;">- ${subName}</span>
+                            <span class="sub-spent-info" style="font-size: 11px; color: #888;">지출: ${window.fmt(subSpent)}원</span>
+                        </div>
+                        <div class="budget-input-wrap">
+                            <input type="text" class="budget-input" id="sub-input-${cat}-${safeSubName}" 
+                                   value="${subAmt > 0 ? window.fmt(subAmt) : ''}" 
+                                   placeholder="세부 예산" style="width: 70px; font-size: 12px;"
+                                   oninput="this.value=window.fmtInput(this.value)">
+                            <span class="budget-unit" style="font-size: 12px;">원</span>
+                            <button onclick="saveSubBudget('${cat}', '${subName}', '${safeSubName}')" style="background:#ddd; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px; margin-left:4px;">저장</button>
+                            <button onclick="deleteSubBudget('${cat}', '${subName}')" style="background:#ffdddd; color: #cc0000; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px; margin-left:2px;">삭제</button>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            // 새 세부 항목 추가 폼
+            subCatHtml = `
+                <div class="sub-budget-container" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 8px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px; font-weight: bold;">👇 세부 예산 설정</div>
+                    ${subListHtml}
+                    <div class="sub-budget-add" style="display:flex; gap: 6px; margin-top: 10px; margin-left: 12px;">
+                        <input type="text" id="new-sub-name-${cat}" placeholder="새 항목 (예: 회식)" style="padding: 4px; font-size: 12px; flex: 1; border: 1px solid #ddd; border-radius: 4px;">
+                        <button onclick="addSubCategory('${cat}')" style="background:var(--accent); color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:12px;">+ 추가</button>
+                    </div>
+                </div>`;
+        }
+
+        // 전체 컨테이너 조합
         return `
-            <div class="budget-row">
-                <div class="budget-row-top">
-                    <span class="budget-cat">${cat}</span>
+            <div class="budget-row" style="margin-bottom: 16px;">
+                <div class="budget-row-top" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="budget-cat" onclick="toggleCat('${cat}')" style="cursor: pointer; user-select: none;">
+                        ${isExpanded ? '🔽' : '▶️'} ${cat}
+                    </span>
                     <div class="budget-input-wrap">
                         <input type="text" class="budget-input" id="budget-input-${cat}" 
                                value="${budAmt > 0 ? window.fmt(budAmt) : ''}" 
-                               placeholder="예산 입력"
+                               placeholder="총 예산 입력"
                                oninput="this.value=window.fmtInput(this.value)">
                         <span class="budget-unit">원</span>
                         <button onclick="saveBudget('${cat}')" style="background:var(--accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; margin-left:4px;">저장</button>
                     </div>
                 </div>
-                <div class="budget-bar-bg">
+                <div class="budget-bar-bg" style="margin-top: 8px;">
                     <div class="budget-bar ${over ? 'over' : pct > 80 ? 'warn' : ''}" style="width:${pct}%"></div>
                 </div>
-                <div class="budget-stat">
+                <div class="budget-stat" style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 12px;">
                     <span>${window.fmt(spent)}원 지출</span>
                     <span>${budAmt > 0 ? (over ? `<span class="over-text">${window.fmt(spent - budAmt)}원 초과</span>` : `<span class="remain-text">${window.fmt(budAmt - spent)}원 남음</span>`) : '예산을 설정해주세요'}</span>
                 </div>
+                ${subCatHtml}
             </div>`;
     }).join('');
 }
 
 window.saveBudget = async (cat) => {
-    // 1. 입력된 금액 가져오기
     const inputEl = document.getElementById(`budget-input-${cat}`);
     if (!inputEl) return;
     
-    // 콤마 제거하고 숫자로 변환 (빈 칸이면 0)
     const amount = parseInt(inputEl.value.replace(/,/g, '')) || 0;
     const ym = state.currentMonth;
     const pid = state.currentProfile.id;
-    
-    // 2. 파이어베이스에 저장할 고유 문서 ID 생성 (예: 프로필ID_2026-03_식비)
     const budgetId = `${pid}_${ym}_${cat}`;
     
     try {
-        // 3. setDoc으로 저장 (merge: true를 쓰면 기존 데이터가 있을 땐 덮어쓰고, 없으면 새로 만듭니다)
         await setDoc(doc(db, 'budgets', budgetId), {
             profileId: pid,
             yearMonth: ym,
@@ -149,5 +204,91 @@ window.saveBudget = async (cat) => {
     } catch (error) {
         console.error("예산 저장 실패:", error);
         alert("예산 저장에 권한 문제가 있거나 실패했습니다.");
+    }
+};
+
+// 1. 새로운 세부 항목 이름 추가
+window.addSubCategory = async (cat) => {
+    const nameInput = document.getElementById(`new-sub-name-${cat}`);
+    const subName = nameInput.value.trim();
+    if (!subName) return alert('세부항목 이름을 입력하세요.');
+
+    const ym = state.currentMonth;
+    const pid = state.currentProfile.id;
+    const budgetId = `${pid}_${ym}_${cat}`;
+    
+    const existingData = state.budgets[`${ym}_${cat}`] || {};
+    const subCategories = { ...(existingData.subCategories || {}) };
+    
+    if (subCategories[subName] !== undefined) {
+        return alert('이미 존재하는 세부항목입니다.');
+    }
+    
+    subCategories[subName] = 0; 
+    
+    try {
+        await setDoc(doc(db, 'budgets', budgetId), {
+            profileId: pid,
+            yearMonth: ym,
+            category: cat,
+            subCategories: subCategories,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        if (window.showToast) window.showToast(`${subName} 항목이 추가되었습니다.`);
+    } catch (error) {
+        console.error(error);
+        alert("항목 추가에 실패했습니다.");
+    }
+};
+
+// 2. 세부 항목 예산 금액 저장 (안전한 ID 매개변수 추가)
+window.saveSubBudget = async (cat, subName, safeSubName) => {
+    const inputEl = document.getElementById(`sub-input-${cat}-${safeSubName}`);
+    if (!inputEl) return;
+    
+    const amount = parseInt(inputEl.value.replace(/,/g, '')) || 0;
+    const ym = state.currentMonth;
+    const pid = state.currentProfile.id;
+    const budgetId = `${pid}_${ym}_${cat}`;
+    
+    const existingData = state.budgets[`${ym}_${cat}`] || {};
+    const subCategories = { ...(existingData.subCategories || {}) };
+    
+    subCategories[subName] = amount; 
+    
+    try {
+        await setDoc(doc(db, 'budgets', budgetId), {
+            profileId: pid,
+            yearMonth: ym,
+            category: cat,
+            subCategories: subCategories,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        if (window.showToast) window.showToast(`${subName} 예산이 저장되었습니다.`);
+    } catch (error) {
+        console.error(error);
+    }
+};
+
+// 3. 세부 항목 삭제 (updateDoc, deleteField 적용)
+window.deleteSubBudget = async (cat, subName) => {
+    if(!confirm(`'${subName}' 항목을 삭제하시겠습니까?`)) return;
+
+    const ym = state.currentMonth;
+    const pid = state.currentProfile.id;
+    const budgetId = `${pid}_${ym}_${cat}`;
+    
+    try {
+        await updateDoc(doc(db, 'budgets', budgetId), {
+            [`subCategories.${subName}`]: deleteField(),
+            updatedAt: serverTimestamp()
+        });
+        
+        if (window.showToast) window.showToast(`${subName} 항목이 삭제되었습니다.`);
+    } catch (error) {
+        console.error("세부 항목 삭제 실패:", error);
+        alert("항목 삭제에 실패했습니다.");
     }
 };
