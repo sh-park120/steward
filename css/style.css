@@ -429,30 +429,6 @@ body {
 }
 
 /* ── EMOJI PICKER (steward_visual) ── */
-.emoji-select-wrapper {
-  position: relative;
-  margin-right: 10px;
-}
-
-.selected-emoji-display {
-  width: 48px;
-  height: 48px;
-  background: var(--surface2);
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.selected-emoji-display:hover {
-  border-color: var(--accent);
-  background: #2a2a3a;
-}
-
 .emoji-picker {
   position: absolute;
   bottom: 60px; /* 입력창 위로 띄움 */
@@ -463,38 +439,47 @@ body {
   padding: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.6);
   z-index: 100;
-  width: 220px;
-  max-height: 180px;
-  overflow-y: auto;
+  width: 260px;       /* 이모지가 많으므로 폭을 조금 넓힘 */
+  max-height: 350px;   /* [중요] 한 번에 보여줄 최대 높이 */
+  overflow-y: auto;    /* [중요] 내용이 많으면 스크롤바 생성 */
+  
+  /* 터치 기기에서 부드러운 스크롤 */
+  -webkit-overflow-scrolling: touch; 
 }
 
-/* 스크롤바 커스텀 */
+/* 스크롤바를 조금 더 깔끔하게 디자인 (다크모드용) */
 .emoji-picker::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
+}
+.emoji-picker::-webkit-scrollbar-track {
+  background: transparent;
 }
 .emoji-picker::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 10px;
 }
+.emoji-picker::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
 
 .emoji-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr); /* 1줄에 6개씩 배치하여 더 많이 보이게 함 */
   gap: 8px;
 }
 
 .emoji-grid span {
   font-size: 22px;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
   text-align: center;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: transform 0.15s, background 0.15s;
 }
 
 .emoji-grid span:hover {
   background: var(--surface2);
-  transform: scale(1.2);
+  transform: scale(1.2); /* 마우스 올리면 살짝 커짐 */
 }
 
 /* 기존 new-profile-row 수정 */
