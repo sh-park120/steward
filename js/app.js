@@ -94,8 +94,13 @@ function renderDashboard() {
 // 1. 토글 상태 관리를 위한 전역 변수 추가
 window.expandedCats = window.expandedCats || {};
 
-// 카테고리 열기/닫기 토글 함수
-window.toggleCat = (cat) => {
+// 카테고리 열기/닫기 토글 함수 (✨ 클릭 영역 예외 처리 추가)
+window.toggleCat = (cat, event) => {
+    // 이벤트 객체가 전달되었고, 클릭한 곳이 입력창/버튼 영역(.budget-input-wrap) 내부라면 토글하지 않음
+    if (event && event.target.closest('.budget-input-wrap')) {
+        return; 
+    }
+    
     window.expandedCats[cat] = !window.expandedCats[cat];
     refreshAll(); // 상태 변경 후 UI 다시 그리기
 };
@@ -162,30 +167,37 @@ function renderBudget() {
                 </div>`;
         }
 
-        // ✨ [수정됨] 세부 항목이 있으면 인풋을 잠그고 '자동합산' 표시
+       // ✨ [수정됨] 세부 항목(subCatHtml)을 제외한 메인 영역 전체를 클릭할 수 있도록 박스로 감싸기
         return `
             <div class="budget-row" style="margin-bottom: 16px;">
-                <div class="budget-row-top" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span class="budget-cat" onclick="toggleCat('${cat}')" style="cursor: pointer; user-select: none;">
-                        ${isExpanded ? '🔽' : '▶️'} ${cat}
-                    </span>
-                    <div class="budget-input-wrap">
-                        <input type="text" class="budget-input" id="budget-input-${cat}" 
-                               value="${budAmt > 0 ? window.fmt(budAmt) : ''}" 
-                               placeholder="${hasSubCats ? '자동 합산됨' : '총 예산 입력'}"
-                               ${hasSubCats ? 'readonly style="background:#efefef; color:#888;" title="세부 항목의 합계입니다"' : 'oninput="this.value=window.fmtInput(this.value)"'}>
-                        <span class="budget-unit">원</span>
-                        ${hasSubCats 
-                            ? `<span style="font-size:11px; color:#888; margin-left:4px; font-weight:bold;">(합산)</span>` 
-                            : `<button onclick="saveBudget('${cat}')" style="background:var(--accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; margin-left:4px;">저장</button>`}
+                
+                <div class="budget-main-area" onclick="toggleCat('${cat}', event)" style="cursor: pointer; padding: 6px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='transparent'">
+                    
+                    <div class="budget-row-top" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="budget-cat" style="user-select: none;">
+                            ${isExpanded ? '🔽' : '▶️'} ${cat}
+                        </span>
+                        
+                        <div class="budget-input-wrap">
+                            <input type="text" class="budget-input" id="budget-input-${cat}" 
+                                   value="${budAmt > 0 ? window.fmt(budAmt) : ''}" 
+                                   placeholder="${hasSubCats ? '자동 합산됨' : '총 예산 입력'}"
+                                   ${hasSubCats ? 'readonly style="background:#efefef; color:#888;" title="세부 항목의 합계입니다"' : 'oninput="this.value=window.fmtInput(this.value)"'}>
+                            <span class="budget-unit">원</span>
+                            ${hasSubCats 
+                                ? `<span style="font-size:11px; color:#888; margin-left:4px; font-weight:bold;">(합산)</span>` 
+                                : `<button onclick="saveBudget('${cat}')" style="background:var(--accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; margin-left:4px;">저장</button>`}
+                        </div>
                     </div>
-                </div>
-                <div class="budget-bar-bg" style="margin-top: 8px;">
-                    <div class="budget-bar ${over ? 'over' : pct > 80 ? 'warn' : ''}" style="width:${pct}%"></div>
-                </div>
-                <div class="budget-stat" style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 12px;">
-                    <span>${window.fmt(spent)}원 지출</span>
-                    <span>${budAmt > 0 ? (over ? `<span class="over-text">${window.fmt(spent - budAmt)}원 초과</span>` : `<span class="remain-text">${window.fmt(budAmt - spent)}원 남음</span>`) : '예산을 설정해주세요'}</span>
+                    
+                    <div class="budget-bar-bg" style="margin-top: 8px;">
+                        <div class="budget-bar ${over ? 'over' : pct > 80 ? 'warn' : ''}" style="width:${pct}%"></div>
+                    </div>
+                    
+                    <div class="budget-stat" style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 12px;">
+                        <span>${window.fmt(spent)}원 지출</span>
+                        <span>${budAmt > 0 ? (over ? `<span class="over-text">${window.fmt(spent - budAmt)}원 초과</span>` : `<span class="remain-text">${window.fmt(budAmt - spent)}원 남음</span>`) : '예산을 설정해주세요'}</span>
+                    </div>
                 </div>
                 ${subCatHtml}
             </div>`;
