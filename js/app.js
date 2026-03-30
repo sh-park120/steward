@@ -73,8 +73,8 @@ function renderDashboard() {
 
     if (dashInc) dashInc.textContent = window.fmt(income) + '원';
     if (dashExp) dashExp.textContent = window.fmt(expense) + '원';
-    if (dashBal) {
-        // 👇 잔액 색상 및 부호 처리 추가 👇
+    
+    // 👇 잔액 색상 및 부호 처리 추가 👇
     if (dashBal) {
         const balance = income - expense;
         if (balance > 0) {
@@ -88,7 +88,6 @@ function renderDashboard() {
             dashBal.style.color = '#ffffff'; // 흰색
         }
     }
-}
 }
 
 // 1. 토글 상태 관리를 위한 전역 변수 추가
@@ -178,7 +177,7 @@ function renderBudget() {
                             ${isExpanded ? '🔽' : '▶️'} ${cat}
                         </span>
                         
-                        <div class="budget-input-wrap">
+                        <div class="budget-input-wrap" onclick="event.stopPropagation()">
                             <input type="text" class="budget-input" id="budget-input-${cat}" 
                                    value="${budAmt > 0 ? window.fmt(budAmt) : ''}" 
                                    placeholder="${hasSubCats ? '자동 합산됨' : '총 예산 입력'}"
@@ -203,6 +202,32 @@ function renderBudget() {
             </div>`;
     }).join('');
 }
+
+// ✨ [추가됨] 대분류 총 예산 저장 함수 복구
+window.saveBudget = async (cat) => {
+    const inputEl = document.getElementById(`budget-input-${cat}`);
+    if (!inputEl) return;
+    
+    const amount = parseInt(inputEl.value.replace(/,/g, '')) || 0;
+    const ym = state.currentMonth;
+    const pid = state.currentProfile.id;
+    const budgetId = `${pid}_${ym}_${cat}`;
+    
+    try {
+        await setDoc(doc(db, 'budgets', budgetId), {
+            profileId: pid,
+            yearMonth: ym,
+            category: cat,
+            amount: amount,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        if (window.showToast) window.showToast(`${cat} 예산이 저장되었습니다!`);
+    } catch (error) {
+        console.error("예산 저장 실패:", error);
+        alert("예산 저장에 권한 문제가 있거나 실패했습니다.");
+    }
+};
 
 // 1. 새로운 세부 항목 이름 추가 (✨ 추가 시 합산 갱신)
 window.addSubCategory = async (cat) => {
@@ -307,7 +332,6 @@ window.deleteSubBudget = async (cat, subName) => {
         alert("항목 삭제에 실패했습니다.");
     }
 };
-
 
 window.renderBudget = renderBudget;
 
