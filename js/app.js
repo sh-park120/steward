@@ -78,7 +78,7 @@ function renderDashboard() {
     }
 
     // 카테고리별 지출 차트 (막대 그래프 형태)
-    renderCategoryChart(monthTx);
+    //renderCategoryChart(monthTx);
 }
 
 // 💰 --- steward_plan (예산 계획 관리) ---

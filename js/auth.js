@@ -118,7 +118,7 @@ export async function loadProfiles() {
         const q = query(
             collection(db, 'profiles'), 
             where('uid', '==', state.currentUser.uid), 
-            orderBy('createdAt', 'asc')
+            //orderBy('createdAt', 'asc')
         );
         const snap = await getDocs(q);
         state.allProfiles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -169,7 +169,7 @@ window.createProfile = async () => {
         document.getElementById('profile-emoji').value = '😊';
         
         if (window.showToast) window.showToast('새 프로필이 생성되었습니다!');
-        loadProfiles();
+        await loadProfiles();
     } catch (e) {
         console.error(e);
         alert('프로필 생성 실패');
