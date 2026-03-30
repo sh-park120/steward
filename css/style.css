@@ -24,7 +24,35 @@ body {
   min-height: 100vh;
   font-size: 14px;
 }
+/* 앱 버전 표시 (좌측 상단 고정) */
+.app-version {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  font-size: 10px;          /* 아주 작은 크기 */
+  color: var(--muted);      /* 은은한 회색조 */
+  font-family: 'Gowun Dodum', sans-serif;
+  letter-spacing: 1px;
+  opacity: 0.6;             /* 살짝 투명하게 */
+  z-index: 1000;            /* 어떤 화면에서도 보이도록 */
+  pointer-events: none;     /* 클릭 방해 금지 */
+}
 
+/* 기존 로고 스타일 확인 (버전 삭제 후 정렬) */
+.login-logo {
+  font-family: 'Black Han Sans', sans-serif;
+  font-size: 52px; 
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: -2px;
+}
+
+.profile-screen-title {
+  font-family: 'Black Han Sans', sans-serif;
+  font-size: 28px; 
+  color: var(--text); 
+  margin-bottom: 6px;
+}
 /* ── SCREENS ── */
 #screen-login, #screen-profile, #screen-app { min-height: 100vh; }
 
