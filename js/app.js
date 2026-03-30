@@ -101,7 +101,11 @@ function renderBudget() {
         const key = `${ym}_${cat}`;
         const budgetData = state.budgets[key] || {};
         const budAmt = budgetData.amount || 0;
-        const subCategories = budgetData.subCategories || {}; // 세부 항목 데이터
+        const subCategories = budgetData.subCategories || {}; 
+        const subCatKeys = Object.keys(subCategories);
+        
+        // ✨ [추가됨] 세부 항목 존재 여부 확인
+        const hasSubCats = subCatKeys.length > 0;
         
         const spent = monthTx.filter(t => t.type === 'expense' && t.category === cat).reduce((s, t) => s + t.amount, 0);
         const pct = budAmt > 0 ? Math.min(100, Math.round((spent / budAmt) * 100)) : 0;
@@ -112,16 +116,9 @@ function renderBudget() {
         // --- 세부 항목 UI 렌더링 ---
         let subCatHtml = '';
         if (isExpanded) {
-            const subCatKeys = Object.keys(subCategories);
-            
-            // 기존 등록된 세부 항목들 나열
             const subListHtml = subCatKeys.map(subName => {
                 const subAmt = subCategories[subName];
-                
-                // 거래내역(Transactions)에 subCategory 필드가 있다면 실제 세부 항목 지출도 계산
                 const subSpent = monthTx.filter(t => t.type === 'expense' && t.category === cat && t.subCategory === subName).reduce((s, t) => s + t.amount, 0);
-
-                // HTML ID로 안전하게 사용하기 위해 공백 제거 (예: "회식 비" -> "회식비")
                 const safeSubName = subName.replace(/\s+/g, '');
 
                 return `
@@ -142,7 +139,6 @@ function renderBudget() {
                     </div>`;
             }).join('');
 
-            // 새 세부 항목 추가 폼
             subCatHtml = `
                 <div class="sub-budget-container" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 8px;">
                     <div style="font-size: 12px; color: #666; margin-bottom: 8px; font-weight: bold;">👇 세부 예산 설정</div>
@@ -154,7 +150,7 @@ function renderBudget() {
                 </div>`;
         }
 
-        // 전체 컨테이너 조합
+        // ✨ [수정됨] 세부 항목이 있으면 인풋을 잠그고 '자동합산' 표시
         return `
             <div class="budget-row" style="margin-bottom: 16px;">
                 <div class="budget-row-top" style="display: flex; justify-content: space-between; align-items: center;">
@@ -164,10 +160,12 @@ function renderBudget() {
                     <div class="budget-input-wrap">
                         <input type="text" class="budget-input" id="budget-input-${cat}" 
                                value="${budAmt > 0 ? window.fmt(budAmt) : ''}" 
-                               placeholder="총 예산 입력"
-                               oninput="this.value=window.fmtInput(this.value)">
+                               placeholder="${hasSubCats ? '자동 합산됨' : '총 예산 입력'}"
+                               ${hasSubCats ? 'readonly style="background:#efefef; color:#888;" title="세부 항목의 합계입니다"' : 'oninput="this.value=window.fmtInput(this.value)"'}>
                         <span class="budget-unit">원</span>
-                        <button onclick="saveBudget('${cat}')" style="background:var(--accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; margin-left:4px;">저장</button>
+                        ${hasSubCats 
+                            ? `<span style="font-size:11px; color:#888; margin-left:4px; font-weight:bold;">(합산)</span>` 
+                            : `<button onclick="saveBudget('${cat}')" style="background:var(--accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; margin-left:4px;">저장</button>`}
                     </div>
                 </div>
                 <div class="budget-bar-bg" style="margin-top: 8px;">
@@ -182,32 +180,7 @@ function renderBudget() {
     }).join('');
 }
 
-window.saveBudget = async (cat) => {
-    const inputEl = document.getElementById(`budget-input-${cat}`);
-    if (!inputEl) return;
-    
-    const amount = parseInt(inputEl.value.replace(/,/g, '')) || 0;
-    const ym = state.currentMonth;
-    const pid = state.currentProfile.id;
-    const budgetId = `${pid}_${ym}_${cat}`;
-    
-    try {
-        await setDoc(doc(db, 'budgets', budgetId), {
-            profileId: pid,
-            yearMonth: ym,
-            category: cat,
-            amount: amount,
-            updatedAt: serverTimestamp()
-        }, { merge: true });
-        
-        if (window.showToast) window.showToast(`${cat} 예산이 저장되었습니다!`);
-    } catch (error) {
-        console.error("예산 저장 실패:", error);
-        alert("예산 저장에 권한 문제가 있거나 실패했습니다.");
-    }
-};
-
-// 1. 새로운 세부 항목 이름 추가
+// 1. 새로운 세부 항목 이름 추가 (✨ 추가 시 합산 갱신)
 window.addSubCategory = async (cat) => {
     const nameInput = document.getElementById(`new-sub-name-${cat}`);
     const subName = nameInput.value.trim();
@@ -226,11 +199,15 @@ window.addSubCategory = async (cat) => {
     
     subCategories[subName] = 0; 
     
+    // 세부 항목들의 총합 계산
+    const newTotalAmount = Object.values(subCategories).reduce((sum, val) => sum + (val || 0), 0);
+
     try {
         await setDoc(doc(db, 'budgets', budgetId), {
             profileId: pid,
             yearMonth: ym,
             category: cat,
+            amount: newTotalAmount, // ✨ 총 예산 덮어쓰기
             subCategories: subCategories,
             updatedAt: serverTimestamp()
         }, { merge: true });
@@ -242,7 +219,7 @@ window.addSubCategory = async (cat) => {
     }
 };
 
-// 2. 세부 항목 예산 금액 저장 (안전한 ID 매개변수 추가)
+// 2. 세부 항목 예산 금액 저장 (✨ 저장 시 합산 갱신)
 window.saveSubBudget = async (cat, subName, safeSubName) => {
     const inputEl = document.getElementById(`sub-input-${cat}-${safeSubName}`);
     if (!inputEl) return;
@@ -257,11 +234,15 @@ window.saveSubBudget = async (cat, subName, safeSubName) => {
     
     subCategories[subName] = amount; 
     
+    // 세부 항목들의 총합 계산
+    const newTotalAmount = Object.values(subCategories).reduce((sum, val) => sum + (val || 0), 0);
+
     try {
         await setDoc(doc(db, 'budgets', budgetId), {
             profileId: pid,
             yearMonth: ym,
             category: cat,
+            amount: newTotalAmount, // ✨ 총 예산 덮어쓰기
             subCategories: subCategories,
             updatedAt: serverTimestamp()
         }, { merge: true });
@@ -272,7 +253,7 @@ window.saveSubBudget = async (cat, subName, safeSubName) => {
     }
 };
 
-// 3. 세부 항목 삭제 (updateDoc, deleteField 적용)
+// 3. 세부 항목 삭제 (✨ 삭제 시 남은 항목 합산 갱신)
 window.deleteSubBudget = async (cat, subName) => {
     if(!confirm(`'${subName}' 항목을 삭제하시겠습니까?`)) return;
 
@@ -280,8 +261,18 @@ window.deleteSubBudget = async (cat, subName) => {
     const pid = state.currentProfile.id;
     const budgetId = `${pid}_${ym}_${cat}`;
     
+    // 합계를 먼저 계산하기 위해 객체 준비
+    const existingData = state.budgets[`${ym}_${cat}`] || {};
+    const subCategories = { ...(existingData.subCategories || {}) };
+    
+    delete subCategories[subName]; // 삭제할 항목 제외
+    
+    // 남은 항목들의 총합 계산
+    const newTotalAmount = Object.values(subCategories).reduce((sum, val) => sum + (val || 0), 0);
+
     try {
         await updateDoc(doc(db, 'budgets', budgetId), {
+            amount: newTotalAmount, // ✨ 총 예산 덮어쓰기
             [`subCategories.${subName}`]: deleteField(),
             updatedAt: serverTimestamp()
         });
@@ -292,4 +283,79 @@ window.deleteSubBudget = async (cat, subName) => {
         alert("항목 삭제에 실패했습니다.");
     }
 };
+
+
 window.renderBudget = renderBudget;
+
+
+// rules_version = '2';
+// service cloud.firestore {
+// match /databases/{database}/documents {
+
+
+// // ─────────────────────────────
+// // 공통 함수
+// // ─────────────────────────────
+// function isSignedIn() {
+//   return request.auth != null;
+// }
+
+// function isProfileOwner(profileId) {
+//   return get(/databases/$(database)/documents/profiles/$(profileId)).data.uid
+//     == request.auth.uid;
+// }
+
+// // ─────────────────────────────
+// // profiles
+// // ─────────────────────────────
+// match /profiles/{profileId} {
+
+//   // 생성
+//   allow create: if isSignedIn()
+//     && request.resource.data.uid == request.auth.uid;
+
+//   // 조회 (🔥 query-safe)
+//   allow read: if isSignedIn()
+//     && resource.data.uid == request.auth.uid;
+
+//   // 수정/삭제
+//   allow update, delete: if isSignedIn()
+//     && resource.data.uid == request.auth.uid;
+// }
+
+// // ─────────────────────────────
+// // transactions
+// // ─────────────────────────────
+// match /transactions/{txId} {
+
+//   // 생성
+//   allow create: if isSignedIn()
+//     && isProfileOwner(request.resource.data.profileId)
+//     && request.resource.data.amount is number
+//     && request.resource.data.amount > 0
+//     && request.resource.data.profileId is string;
+
+//   // 조회 / 수정 / 삭제
+//   allow read, update, delete: if isSignedIn()
+//     && isProfileOwner(resource.data.profileId);
+// }
+
+// // ─────────────────────────────
+// // budgets
+// // ─────────────────────────────
+// match /budgets/{budgetId} {
+
+//   // 생성
+//   allow create: if isSignedIn()
+//     && isProfileOwner(request.resource.data.profileId)
+//     && request.resource.data.amount is number
+//     && request.resource.data.amount >= 0;
+
+//   // 조회 / 수정 / 삭제
+//   allow read, update, delete: if isSignedIn()
+//     && isProfileOwner(resource.data.profileId);
+// }
+
+
+// }
+// }
