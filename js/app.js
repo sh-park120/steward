@@ -1,5 +1,5 @@
 import { db, state, showScreen } from './auth.js';
-import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, query, where, orderBy, onSnapshot, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { renderLedger } from './ledger.js';
 // 앱 시작 시 데이터 구독 및 초기화
 window.initAppData = () => {
@@ -88,7 +88,7 @@ function renderBudget() {
     const container = document.getElementById('budget-list');
     if (!container) return;
 
-    // 카테고리 정의 (기존 CATEGORIES 상수 참조 필요)
+    // 카테고리 정의
     const expenseCategories = ['식비','카페','교통','쇼핑','의료','문화','통신','주거','교육','저축','기타지출'];
 
     container.innerHTML = expenseCategories.map(cat => {
@@ -102,12 +102,52 @@ function renderBudget() {
             <div class="budget-row">
                 <div class="budget-row-top">
                     <span class="budget-cat">${cat}</span>
-                    <span class="budget-amt-info">${window.fmt(spent)} / ${budAmt > 0 ? window.fmt(budAmt) : '미설정'}</span>
+                    <div class="budget-input-wrap">
+                        <input type="text" class="budget-input" id="budget-input-${cat}" 
+                               value="${budAmt > 0 ? window.fmt(budAmt) : ''}" 
+                               placeholder="예산 입력"
+                               oninput="this.value=window.fmtInput(this.value)">
+                        <span class="budget-unit">원</span>
+                        <button onclick="saveBudget('${cat}')" style="background:var(--accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; margin-left:4px;">저장</button>
+                    </div>
                 </div>
                 <div class="budget-bar-bg">
                     <div class="budget-bar ${over ? 'over' : pct > 80 ? 'warn' : ''}" style="width:${pct}%"></div>
+                </div>
+                <div class="budget-stat">
+                    <span>${window.fmt(spent)}원 지출</span>
+                    <span>${budAmt > 0 ? (over ? `<span class="over-text">${window.fmt(spent - budAmt)}원 초과</span>` : `<span class="remain-text">${window.fmt(budAmt - spent)}원 남음</span>`) : '예산을 설정해주세요'}</span>
                 </div>
             </div>`;
     }).join('');
 }
 
+window.saveBudget = async (cat) => {
+    // 1. 입력된 금액 가져오기
+    const inputEl = document.getElementById(`budget-input-${cat}`);
+    if (!inputEl) return;
+    
+    // 콤마 제거하고 숫자로 변환 (빈 칸이면 0)
+    const amount = parseInt(inputEl.value.replace(/,/g, '')) || 0;
+    const ym = state.currentMonth;
+    const pid = state.currentProfile.id;
+    
+    // 2. 파이어베이스에 저장할 고유 문서 ID 생성 (예: 프로필ID_2026-03_식비)
+    const budgetId = `${pid}_${ym}_${cat}`;
+    
+    try {
+        // 3. setDoc으로 저장 (merge: true를 쓰면 기존 데이터가 있을 땐 덮어쓰고, 없으면 새로 만듭니다)
+        await setDoc(doc(db, 'budgets', budgetId), {
+            profileId: pid,
+            yearMonth: ym,
+            category: cat,
+            amount: amount,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        if (window.showToast) window.showToast(`${cat} 예산이 저장되었습니다!`);
+    } catch (error) {
+        console.error("예산 저장 실패:", error);
+        alert("예산 저장에 권한 문제가 있거나 실패했습니다.");
+    }
+};

@@ -1,25 +1,25 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>셩이와 봄이의 청지기 일지</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-    
-    <script>
-      // 카카오톡 인앱 브라우저 대응
-      var userAgent = navigator.userAgent.toLowerCase();
-      if (userAgent.indexOf('kakaotalk') > -1) {
-        if (userAgent.indexOf('android') > -1) {
-          location.href = 'intent://' + location.href.replace(/https?:\/\//i, '') + '#Intent;scheme=https;package=com.android.chrome;end';
-        } else if (userAgent.indexOf('iphone') > -1 || userAgent.indexOf('ipad') > -1) {
-          alert("구글 보안 정책으로 인해 카카오톡 안에서는 로그인이 불가능합니다.\n\n화면 우측 하단의 [ 🧭 나침반 아이콘 ] 또는 [ Safari로 열기 ]를 눌러주세요!");
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>셩이와 봄이의 청지기 일지</title>
+      <link rel="stylesheet" href="css/style.css">
+      <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+      
+      <script>
+        // 카카오톡 인앱 브라우저 대응
+        var userAgent = navigator.userAgent.toLowerCase();
+        if (userAgent.indexOf('kakaotalk') > -1) {
+          if (userAgent.indexOf('android') > -1) {
+            location.href = 'intent://' + location.href.replace(/https?:\/\//i, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+          } else if (userAgent.indexOf('iphone') > -1 || userAgent.indexOf('ipad') > -1) {
+            alert("구글 보안 정책으로 인해 카카오톡 안에서는 로그인이 불가능합니다.\n\n화면 우측 하단의 [ 🧭 나침반 아이콘 ] 또는 [ Safari로 열기 ]를 눌러주세요!");
+          }
         }
-      }
-    </script>
-</head>
-<body>
+      </script>
+  </head>
+  <body>
     <div class="app-version">v.1.0.0</div>
     <div id="screen-login">
         <div class="login-box">
@@ -137,39 +137,65 @@
     <script type="module" src="js/record.js"></script>
 
     <script>
-      // 1. 모달 제어
-      window.openAddModal = () => {
-        document.getElementById('add-modal').classList.add('open');
-        document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
-        // 모달 열 때 현재 타입에 맞는 카테고리 로드
-        if(window.updateCatOptions) window.updateCatOptions();
-      };
-      
-      window.closeModal = (id) => document.getElementById(id).classList.remove('open');
-      
-      // 2. 수입/지출 타입 전환
-      window.setTxType = (type) => {
-        document.querySelectorAll('.type-btn').forEach(b => {
-          b.classList.toggle('active', b.dataset.type === type);
-        });
-        // 타입이 바뀔 때마다 카테고리 셀렉트 박스 갱신
-        if(window.updateCatOptions) window.updateCatOptions(type);
-      };
+        // 1. 모달 제어
+        window.openAddModal = () => {
+          document.getElementById('add-modal').classList.add('open');
+          document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
+          // 모달 열 때 현재 타입에 맞는 카테고리 로드
+          if(window.updateCatOptions) window.updateCatOptions();
+        };
+        
+        window.closeModal = (id) => document.getElementById(id).classList.remove('open');
+        
+        // 2. 수입/지출 타입 전환
+        window.setTxType = (type) => {
+          document.querySelectorAll('.type-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.type === type);
+          });
+          // 타입이 바뀔 때마다 카테고리 셀렉트 박스 갱신
+          if(window.updateCatOptions) window.updateCatOptions(type);
+        };
 
-      // 3. 토스트 알림
-      window.showToast = (msg, type='ok') => {
-        const t = document.getElementById('toast');
-        if(!t) return;
-        t.textContent = msg;
-        t.className = `toast show ${type}`;
-        setTimeout(() => t.classList.remove('show'), 2500);
-      };
+        // 👇👇 [여기에 새로 추가합니다!] 카테고리 목록 업데이트 함수 👇👇
+        window.updateCatOptions = (type) => {
+          // 함수가 호출될 때 type이 안 들어오면, 현재 선택된 버튼의 타입을 찾습니다.
+          if (!type) {
+              const activeBtn = document.querySelector('.type-btn.active');
+              type = activeBtn ? activeBtn.dataset.type : 'expense'; // 기본값은 지출(expense)
+          }
 
-      // 4. 금액 입력 시 콤마 자동 생성 (ledger.js에 있지만 안전을 위해 인라인 배치 가능)
-      window.fmtInput = (v) => {
-        const n = parseInt(v.replace(/,/g,'')) || '';
-        return n ? n.toLocaleString('ko-KR') : '';
-      };
+          const catSelect = document.getElementById('tx-cat');
+          if (!catSelect) return;
+
+          let options = [];
+          
+          // 타입에 따라 카테고리 목록을 다르게 설정합니다.
+          if (type === 'income') {
+              options = ['월급', '용돈', '부수입', '상여금', '금융소득', '기타수입'];
+          } else {
+              // 지출 카테고리 (예산 탭의 카테고리와 완벽히 일치하도록 설정!)
+              options = ['식비', '카페', '교통', '쇼핑', '의료', '문화', '통신', '주거', '교육', '저축', '기타지출'];
+          }
+
+          // 셀렉트 박스 안에 <option> 태그들로 변환해서 집어넣습니다.
+          catSelect.innerHTML = options.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+        };
+        // 👆👆 추가 끝 👆👆
+
+        // 3. 토스트 알림
+        window.showToast = (msg, type='ok') => {
+          const t = document.getElementById('toast');
+          if(!t) return;
+          t.textContent = msg;
+          t.className = `toast show ${type}`;
+          setTimeout(() => t.classList.remove('show'), 2500);
+        };
+
+        // 4. 금액 입력 시 콤마 자동 생성
+        window.fmtInput = (v) => {
+          const n = parseInt(v.replace(/,/g,'')) || '';
+          return n ? n.toLocaleString('ko-KR') : '';
+        };
     </script>
-</body>
+  </body>
 </html>
