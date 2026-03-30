@@ -375,6 +375,9 @@ window.deleteSubBudget = async (cat, subName) => {
 window.renderBudget = renderBudget;
 
 
+
+
+//// ruls in firestore script
 // rules_version = '2';
 // service cloud.firestore {
 // match /databases/{database}/documents {
@@ -445,4 +448,14 @@ window.renderBudget = renderBudget;
 
 
 // }
+// }
+
+
+// rules_version = '2';
+// service cloud.firestore {
+//   match /databases/{database}/documents {
+//     match /{document=**} {
+//       allow read, write: if true;
+//     }
+//   }
 // }
