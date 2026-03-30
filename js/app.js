@@ -63,6 +63,7 @@ function renderDashboard() {
     const ym = state.currentMonth;
     const monthTx = state.transactions.filter(t => t.date && t.date.startsWith(ym));
     
+    // 수입, 지출 총액 계산
     const income  = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
@@ -74,7 +75,7 @@ function renderDashboard() {
     if (dashInc) dashInc.textContent = window.fmt(income) + '원';
     if (dashExp) dashExp.textContent = window.fmt(expense) + '원';
     
-    // 👇 잔액 색상 및 부호 처리 추가 👇
+    // 잔액 색상 및 부호 처리
     if (dashBal) {
         const balance = income - expense;
         if (balance > 0) {
@@ -88,6 +89,44 @@ function renderDashboard() {
             dashBal.style.color = '#ffffff'; // 흰색
         }
     }
+
+    // ✨ [추가됨] 카테고리별 지출 차트 렌더링 로직
+    const chartContainer = document.getElementById('cat-chart');
+    if (!chartContainer) return;
+
+    // 지출 내역만 필터링
+    const expenses = monthTx.filter(t => t.type === 'expense');
+    
+    // 지출 내역이 없을 때 빈 화면 처리
+    if (expenses.length === 0) {
+        chartContainer.innerHTML = '<div class="empty-state" style="padding: 20px;">이번 달 지출 내역이 없습니다.</div>';
+        return;
+    }
+
+    // 카테고리별로 금액 합산하기
+    const catTotals = {};
+    expenses.forEach(t => {
+        catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
+    });
+
+    // 객체를 배열로 변환하고 금액이 큰 순서대로(내림차순) 정렬
+    const sortedCats = Object.keys(catTotals)
+        .map(cat => ({ category: cat, amount: catTotals[cat] }))
+        .sort((a, b) => b.amount - a.amount);
+
+    // 차트 HTML 생성 (가장 큰 지출이 아니라 '총 지출' 대비 %로 게이지바 길이 설정)
+    chartContainer.innerHTML = sortedCats.map(item => {
+        const pct = Math.round((item.amount / expense) * 100);
+        return `
+            <div class="cat-bar-row">
+                <div class="cat-bar-label">${item.category}</div>
+                <div class="cat-bar-track">
+                    <div class="cat-bar-fill" style="width: ${pct}%"></div>
+                </div>
+                <div class="cat-bar-amount">${window.fmt(item.amount)}원</div>
+            </div>
+        `;
+    }).join('');
 }
 
 // 1. 토글 상태 관리를 위한 전역 변수 추가
