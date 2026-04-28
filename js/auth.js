@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { showToast } from './utils.js';
 import { showScreen } from './ui.js';
 import { loadProfiles, initEmojiPicker } from './profile.js';
+import { loadMyUser, updateMyIdDisplay, openUsernameModal } from './user.js';
 import {
     GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -24,7 +25,7 @@ window.signOutUser = async () => {
     }
 };
 
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
     state.currentUser = user;
     if (user) {
         const avatarEl = document.getElementById('user-avatar-small');
@@ -34,9 +35,18 @@ onAuthStateChanged(auth, user => {
                 avatarEl.innerHTML = `<img src="${user.photoURL}" style="width:100%;height:100%;object-fit:cover;">`;
             }
         }
+
         showScreen('profile');
         loadProfiles();
         setTimeout(initEmojiPicker, 100);
+
+        // Check if user has set a username yet
+        const myUser = await loadMyUser();
+        if (!myUser) {
+            openUsernameModal();
+        } else {
+            updateMyIdDisplay();
+        }
     } else {
         showScreen('login');
     }

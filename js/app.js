@@ -2,6 +2,8 @@
 import { db } from './firebase.js';
 import { state } from './state.js';
 import './utils.js';
+import './user.js';
+import './friends.js';
 import './auth.js';
 import './profile.js';
 import './ui.js';

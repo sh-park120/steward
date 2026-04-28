@@ -2,8 +2,10 @@ import { db } from './firebase.js';
 import { state } from './state.js';
 import { showToast } from './utils.js';
 import { showScreen } from './ui.js';
+import { loadFriendships } from './friends.js';
 import {
-    collection, doc, addDoc, getDocs, deleteDoc, query, where, serverTimestamp
+    collection, doc, addDoc, getDoc, getDocs, deleteDoc,
+    query, where, updateDoc, arrayUnion, arrayRemove, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const EMOJI_LIST = [
@@ -41,14 +43,33 @@ window.selectEmoji = (emoji) => {
     if (picker)  picker.style.display = 'none';
 };
 
+// ── Profile CRUD ──
+
 export async function loadProfiles() {
     try {
-        const q = query(
-            collection(db, 'profiles'),
-            where('uid', '==', state.currentUser.uid)
-        );
-        const snap = await getDocs(q);
-        state.allProfiles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const uid = state.currentUser.uid;
+
+        // Dual query: owned profiles (covers old structure) + member profiles (new structure)
+        const [ownedSnap, memberSnap] = await Promise.all([
+            getDocs(query(collection(db, 'profiles'), where('uid', '==', uid))),
+            getDocs(query(collection(db, 'profiles'), where('members', 'array-contains', uid)))
+        ]);
+
+        const byId = {};
+        [...ownedSnap.docs, ...memberSnap.docs].forEach(d => {
+            byId[d.id] = { id: d.id, ...d.data() };
+        });
+        state.allProfiles = Object.values(byId);
+
+        // Migrate old profiles that don't have a members field yet
+        const toMigrate = state.allProfiles.filter(p => !p.members);
+        if (toMigrate.length > 0) {
+            await Promise.all(toMigrate.map(p =>
+                updateDoc(doc(db, 'profiles', p.id), { members: [p.uid], isShared: false })
+            ));
+            toMigrate.forEach(p => { p.members = [p.uid]; p.isShared = false; });
+        }
+
         renderProfiles();
     } catch (error) {
         console.error("프로필 로드 에러:", error);
@@ -64,15 +85,28 @@ function renderProfiles() {
         return;
     }
 
-    list.innerHTML = state.allProfiles.map(p => `
+    list.innerHTML = state.allProfiles.map(p => {
+        const isOwner  = p.uid === state.currentUser.uid;
+        const isShared = p.isShared || (p.members && p.members.length > 1);
+
+        return `
         <div class="profile-card" onclick="selectProfile('${p.id}')">
             <div class="profile-avatar">${p.emoji || '👤'}</div>
             <div class="profile-info">
-                <div class="profile-pname">${p.name}</div>
-                <div class="profile-hint">탭해서 입장 →</div>
+                <div class="profile-pname">
+                    ${p.name}
+                    ${isShared ? '<span class="shared-badge">공유</span>' : ''}
+                </div>
+                <div class="profile-hint">${isOwner ? '탭해서 입장 →' : '공유 플래너'}</div>
             </div>
-            <button class="profile-delete" onclick="deleteProfile('${p.id}', event)">✕</button>
-        </div>`).join('');
+            <div class="profile-actions">
+                ${isOwner
+                    ? `<button class="profile-share-btn" onclick="openShareModal('${p.id}', event)" title="공유 관리">👥</button>
+                       <button class="profile-delete" onclick="deleteProfile('${p.id}', event)">✕</button>`
+                    : `<button class="profile-leave-btn" onclick="leaveProfile('${p.id}', event)">나가기</button>`}
+            </div>
+        </div>`;
+    }).join('');
 }
 
 window.createProfile = async () => {
@@ -86,7 +120,9 @@ window.createProfile = async () => {
     try {
         await addDoc(collection(db, 'profiles'), {
             uid: state.currentUser.uid,
+            members: [state.currentUser.uid],
             name, emoji,
+            isShared: false,
             createdAt: serverTimestamp()
         });
 
@@ -129,7 +165,123 @@ window.deleteProfile = async (id, e) => {
     }
 };
 
+window.leaveProfile = async (profileId, event) => {
+    event.stopPropagation();
+    if (!confirm('이 공유 플래너에서 나가시겠습니까?')) return;
+
+    try {
+        await updateDoc(doc(db, 'profiles', profileId), {
+            members: arrayRemove(state.currentUser.uid)
+        });
+        showToast('플래너에서 나갔습니다.', 'warn');
+        await loadProfiles();
+    } catch (e) {
+        console.error(e);
+        showToast('오류가 발생했습니다.', 'error');
+    }
+};
+
 window.backToProfiles = () => {
     showScreen('profile');
     loadProfiles();
+};
+
+// ── Share Modal ──
+
+window.openShareModal = async (profileId, event) => {
+    event.stopPropagation();
+
+    const profile = state.allProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+
+    // Ensure friend data is loaded
+    if (!state.friends.length && !Object.keys(state.friendUserMap).length) {
+        await loadFriendships();
+    }
+
+    // Load user data for current non-owner members
+    const memberUids    = (profile.members || []).filter(uid => uid !== state.currentUser.uid);
+    const memberDocs    = await Promise.all(memberUids.map(uid => getDoc(doc(db, 'users', uid))));
+    const memberUsers   = memberDocs.filter(d => d.exists()).map(d => d.data());
+
+    // Friends not yet in the profile
+    const availableFriends = state.friends.filter(f =>
+        !(profile.members || []).includes(f.uid)
+    );
+
+    const content = document.getElementById('share-modal-content');
+    content.innerHTML = `
+        <div class="share-profile-name">${profile.emoji} ${profile.name}</div>
+
+        <div class="friends-section-label" style="margin-top:16px;">현재 멤버</div>
+        <div class="friend-card">
+            <div class="friend-avatar">${state.myUser?.displayName?.[0] || '?'}</div>
+            <div class="friend-info">
+                <div class="friend-name">@${state.myUser?.username || '나'}</div>
+            </div>
+            <span style="font-size:11px;color:var(--muted);">소유자</span>
+        </div>
+        ${memberUsers.map(u => `
+            <div class="friend-card">
+                <div class="friend-avatar">${u.displayName?.[0] || '?'}</div>
+                <div class="friend-info">
+                    <div class="friend-name">@${u.username}</div>
+                    <div class="friend-display">${u.displayName || ''}</div>
+                </div>
+                <button class="friend-reject-btn" onclick="removeMember('${profileId}', '${u.uid}')">제거</button>
+            </div>`).join('')}
+
+        <div class="friends-section-label" style="margin-top:16px;">친구 초대</div>
+        ${availableFriends.length > 0
+            ? availableFriends.map(f => `
+                <div class="friend-card">
+                    <div class="friend-avatar">${f.displayName?.[0] || '?'}</div>
+                    <div class="friend-info">
+                        <div class="friend-name">@${f.username}</div>
+                        <div class="friend-display">${f.displayName || ''}</div>
+                    </div>
+                    <button class="friend-accept-btn" onclick="inviteFriend('${profileId}', '${f.uid}')">초대</button>
+                </div>`).join('')
+            : `<div class="friends-empty">${state.friends.length === 0
+                ? '친구를 먼저 추가해보세요!'
+                : '모든 친구가 이미 멤버예요'}</div>`}
+    `;
+
+    document.getElementById('share-modal').classList.add('open');
+};
+
+window.inviteFriend = async (profileId, friendUid) => {
+    try {
+        await updateDoc(doc(db, 'profiles', profileId), {
+            members: arrayUnion(friendUid),
+            isShared: true
+        });
+        showToast('친구를 초대했습니다!');
+        await loadProfiles();
+        await window.openShareModal(profileId, { stopPropagation: () => {} });
+    } catch (e) {
+        console.error(e);
+        showToast('초대 실패', 'error');
+    }
+};
+
+window.removeMember = async (profileId, memberUid) => {
+    if (!confirm('이 멤버를 제거하시겠습니까?')) return;
+
+    try {
+        const profile         = state.allProfiles.find(p => p.id === profileId);
+        const remaining       = (profile.members || []).filter(uid => uid !== memberUid);
+        const isStillShared   = remaining.length > 1;
+
+        await updateDoc(doc(db, 'profiles', profileId), {
+            members: arrayRemove(memberUid),
+            isShared: isStillShared
+        });
+        showToast('멤버가 제거되었습니다.');
+        await loadProfiles();
+        await window.openShareModal(profileId, { stopPropagation: () => {} });
+    } catch (e) {
+        console.error(e);
+        showToast('제거 실패', 'error');
+    }
 };

@@ -20,7 +20,7 @@
       </script>
   </head>
   <body>
-    <div class="app-version">v.1.0.0</div>
+    <div class="app-version">v.1.1.0</div>
 
     <!-- ── LOGIN ── -->
     <div id="screen-login">
@@ -48,6 +48,13 @@
             </div>
             <div class="profile-screen-title">청<span>지기</span></div>
             <div class="profile-screen-sub">누구의 가계부를 볼까요?</div>
+            <!-- My ID bar: shown after username is set -->
+            <div class="my-id-bar" id="my-id-bar" style="display:none">
+                <span class="my-id-label">내 ID</span>
+                <span class="my-id-value" id="my-id-value">@...</span>
+                <button class="my-id-copy" onclick="copyMyId()">복사</button>
+                <button class="friends-btn" onclick="openFriendsModal()">👥 친구</button>
+            </div>
         </div>
         <div class="profile-content">
             <div class="section-label">프로필 선택</div>
@@ -122,6 +129,66 @@
                     <div class="dash-section-title">카테고리별 지출</div>
                     <div id="cat-chart"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── USERNAME SETUP MODAL (forced, no dismiss) ── -->
+    <div class="modal-overlay modal-center" id="username-modal">
+        <div class="modal-box username-modal-box">
+            <div class="modal-title" style="margin-bottom:12px;">나만의 ID 설정</div>
+            <p class="username-modal-desc">
+                친구 추가와 플래너 공유에 사용할 ID예요.<br>
+                한 번 설정하면 변경할 수 없습니다.
+            </p>
+            <div class="username-input-wrap">
+                <span class="username-prefix">@</span>
+                <input class="form-input" id="username-input"
+                       placeholder="영문·숫자·_ (3-20자)"
+                       style="padding-left: 28px;"
+                       oninput="checkUsernameAvailability()">
+            </div>
+            <div id="username-check-msg" class="username-check-msg muted"></div>
+            <button class="btn-submit" onclick="submitUsername()" style="margin-top:14px;">설정하기</button>
+        </div>
+    </div>
+
+    <!-- ── FRIENDS MODAL ── -->
+    <div class="modal-overlay" id="friends-modal" onclick="if(event.target===this)closeFriendsModal()">
+        <div class="modal-box friends-modal-box">
+            <div class="modal-header">
+                <div class="modal-title">친구 관리</div>
+                <button class="modal-close" onclick="closeFriendsModal()">✕</button>
+            </div>
+            <!-- My ID display inside modal -->
+            <div class="friends-modal-myid-row">
+                <span class="friends-modal-myid-label">내 ID</span>
+                <span class="friends-modal-myid-val" id="friends-modal-myid">@...</span>
+                <button class="my-id-copy" onclick="copyMyId()">복사</button>
+            </div>
+            <!-- Friend list & requests -->
+            <div id="friends-modal-content" class="friends-modal-scroll">
+                <div class="friends-empty">불러오는 중...</div>
+            </div>
+            <!-- Search / Add friend -->
+            <div class="friend-search-bar">
+                <input class="friend-search-input" id="friend-search-input"
+                       placeholder="@ID로 친구 추가"
+                       onkeydown="if(event.key==='Enter')searchAndSendRequest()">
+                <button class="friend-search-btn" onclick="searchAndSendRequest()">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── SHARE PROFILE MODAL ── -->
+    <div class="modal-overlay" id="share-modal" onclick="if(event.target===this)closeModal('share-modal')">
+        <div class="modal-box friends-modal-box">
+            <div class="modal-header">
+                <div class="modal-title">플래너 공유</div>
+                <button class="modal-close" onclick="closeModal('share-modal')">✕</button>
+            </div>
+            <div id="share-modal-content" class="friends-modal-scroll">
+                <div class="friends-empty">불러오는 중...</div>
             </div>
         </div>
     </div>
