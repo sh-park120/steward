@@ -2,10 +2,26 @@ import { state } from './state.js';
 import { fmt } from './utils.js';
 
 export function renderLedger() {
-    const ym         = document.getElementById('ledger-month')?.value || state.currentMonth;
-    const filterType = document.getElementById('filter-type')?.value  || 'all';
+    if (!state.currentPlanner) {
+        const container = document.getElementById('tx-list');
+        if (container) container.innerHTML = '<div class="empty-state">플래너를 선택해주세요</div>';
+        return;
+    }
 
-    let txList = state.transactions.filter(t => t.date && t.date.startsWith(ym));
+    const pid      = state.currentPlanner.id;
+    const isDefault = state.currentPlanner.isDefault;
+
+    // Primary filter: planner (old transactions without plannerId fall under default)
+    let txList = state.transactions.filter(t =>
+        t.plannerId === pid || (!t.plannerId && isDefault)
+    );
+
+    // Secondary filter: optional month (empty input = show all dates)
+    const ym = document.getElementById('ledger-month')?.value || '';
+    if (ym) txList = txList.filter(t => t.date && t.date.startsWith(ym));
+
+    // Type filter
+    const filterType = document.getElementById('filter-type')?.value || 'all';
     if (filterType !== 'all') txList = txList.filter(t => t.type === filterType);
 
     const income  = txList.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -20,14 +36,14 @@ export function renderLedger() {
     const ledgerBal = document.getElementById('ledger-balance');
     if (ledgerBal) {
         if (balance > 0) {
-            ledgerBal.textContent  = '+' + fmt(balance);
-            ledgerBal.style.color  = '#3b82f6';
+            ledgerBal.textContent = '+' + fmt(balance);
+            ledgerBal.style.color = '#3b82f6';
         } else if (balance < 0) {
-            ledgerBal.textContent  = '-' + fmt(balance);
-            ledgerBal.style.color  = '#ef4444';
+            ledgerBal.textContent = '-' + fmt(balance);
+            ledgerBal.style.color = '#ef4444';
         } else {
-            ledgerBal.textContent  = '0';
-            ledgerBal.style.color  = '#ffffff';
+            ledgerBal.textContent = '0';
+            ledgerBal.style.color = '#ffffff';
         }
     }
 
@@ -35,7 +51,7 @@ export function renderLedger() {
     if (!container) return;
 
     if (txList.length === 0) {
-        container.innerHTML = '<div class="empty-state">이 달의 기록이 없어요<br><span>+ 버튼으로 추가해보세요</span></div>';
+        container.innerHTML = '<div class="empty-state">이 플래너의 기록이 없어요<br><span>+ 버튼으로 추가해보세요</span></div>';
         return;
     }
 

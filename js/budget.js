@@ -15,20 +15,29 @@ window.toggleCat = (cat, event) => {
 };
 
 export function renderBudget() {
-    const ym      = state.currentMonth;
-    const monthTx = state.transactions.filter(t => t.date && t.date.startsWith(ym));
     const container = document.getElementById('budget-list');
     if (!container) return;
 
+    if (!state.currentPlanner) {
+        container.innerHTML = '<div class="empty-state">플래너를 선택해주세요</div>';
+        return;
+    }
+
+    const pid        = state.currentPlanner.id;
+    // Transactions in this planner (old transactions without plannerId belong to default)
+    const plannerTx  = state.transactions.filter(t =>
+        t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
+    );
+
     container.innerHTML = EXPENSE_CATEGORIES.map(cat => {
-        const key          = `${ym}_${cat}`;
+        const key          = `${pid}_${cat}`;
         const budgetData   = state.budgets[key] || {};
         const budAmt       = budgetData.amount || 0;
         const subCategories = budgetData.subCategories || {};
         const subCatKeys   = Object.keys(subCategories);
         const hasSubCats   = subCatKeys.length > 0;
 
-        const spent = monthTx
+        const spent = plannerTx
             .filter(t => t.type === 'expense' && t.category === cat)
             .reduce((s, t) => s + t.amount, 0);
         const pct  = budAmt > 0 ? Math.min(100, Math.round((spent / budAmt) * 100)) : 0;
@@ -39,7 +48,7 @@ export function renderBudget() {
         if (isExpanded) {
             const subListHtml = subCatKeys.map(subName => {
                 const subAmt   = subCategories[subName];
-                const subSpent = monthTx
+                const subSpent = plannerTx
                     .filter(t => t.type === 'expense' && t.category === cat && t.subCategory === subName)
                     .reduce((s, t) => s + t.amount, 0);
                 const safeSubName = subName.replace(/\s+/g, '');
@@ -110,113 +119,107 @@ export function renderBudget() {
     }).join('');
 }
 
+// ── Budget save helpers ──
+
+function currentBudgetId(cat) {
+    const pid      = state.currentProfile.id;
+    const plannerId = state.currentPlanner.id;
+    return `${pid}_${plannerId}_${cat}`;
+}
+
+function baseBudgetDoc(cat) {
+    const pid       = state.currentProfile.id;
+    const plannerId  = state.currentPlanner.id;
+    return {
+        profileId: pid,
+        plannerId,
+        category: cat,
+        updatedAt: serverTimestamp()
+    };
+}
+
 window.saveBudget = async (cat) => {
     const inputEl = document.getElementById(`budget-input-${cat}`);
-    if (!inputEl) return;
+    if (!inputEl || !state.currentPlanner) return;
 
-    const amount   = parseInt(inputEl.value.replace(/,/g, '')) || 0;
-    const ym       = state.currentMonth;
-    const pid      = state.currentProfile.id;
-    const budgetId = `${pid}_${ym}_${cat}`;
+    const amount = parseInt(inputEl.value.replace(/,/g, '')) || 0;
 
     try {
-        await setDoc(doc(db, 'budgets', budgetId), {
-            profileId: pid, yearMonth: ym, category: cat, amount,
-            updatedAt: serverTimestamp()
+        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), {
+            ...baseBudgetDoc(cat), amount
         }, { merge: true });
-
         showToast(`${cat} 예산이 저장되었습니다!`);
-    } catch (error) {
-        console.error("예산 저장 실패:", error);
-        alert("예산 저장에 권한 문제가 있거나 실패했습니다.");
+    } catch (e) {
+        console.error(e);
+        alert('예산 저장에 권한 문제가 있거나 실패했습니다.');
     }
 };
 
 window.addSubCategory = async (cat) => {
+    if (!state.currentPlanner) return;
     const nameInput = document.getElementById(`new-sub-name-${cat}`);
     const subName   = nameInput.value.trim();
     if (!subName) return alert('세부항목 이름을 입력하세요.');
 
-    const ym       = state.currentMonth;
-    const pid      = state.currentProfile.id;
-    const budgetId = `${pid}_${ym}_${cat}`;
-
-    const existingData  = state.budgets[`${ym}_${cat}`] || {};
+    const key           = `${state.currentPlanner.id}_${cat}`;
+    const existingData  = state.budgets[key] || {};
     const subCategories = { ...(existingData.subCategories || {}) };
 
     if (subCategories[subName] !== undefined) return alert('이미 존재하는 세부항목입니다.');
-
     subCategories[subName] = 0;
-    const newTotalAmount = Object.values(subCategories).reduce((sum, val) => sum + (val || 0), 0);
+    const newTotal = Object.values(subCategories).reduce((s, v) => s + (v || 0), 0);
 
     try {
-        await setDoc(doc(db, 'budgets', budgetId), {
-            profileId: pid, yearMonth: ym, category: cat,
-            amount: newTotalAmount, subCategories,
-            updatedAt: serverTimestamp()
+        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), {
+            ...baseBudgetDoc(cat), amount: newTotal, subCategories
         }, { merge: true });
-
         showToast(`${subName} 항목이 추가되었습니다.`);
-    } catch (error) {
-        console.error(error);
-        alert("항목 추가에 실패했습니다.");
+    } catch (e) {
+        console.error(e);
+        alert('항목 추가에 실패했습니다.');
     }
 };
 
 window.saveSubBudget = async (cat, subName, safeSubName) => {
+    if (!state.currentPlanner) return;
     const inputEl = document.getElementById(`sub-input-${cat}-${safeSubName}`);
     if (!inputEl) return;
 
-    const amount   = parseInt(inputEl.value.replace(/,/g, '')) || 0;
-    const ym       = state.currentMonth;
-    const pid      = state.currentProfile.id;
-    const budgetId = `${pid}_${ym}_${cat}`;
-
-    const existingData  = state.budgets[`${ym}_${cat}`] || {};
+    const amount        = parseInt(inputEl.value.replace(/,/g, '')) || 0;
+    const key           = `${state.currentPlanner.id}_${cat}`;
+    const existingData  = state.budgets[key] || {};
     const subCategories = { ...(existingData.subCategories || {}) };
     subCategories[subName] = amount;
-
-    const newTotalAmount = Object.values(subCategories).reduce((sum, val) => sum + (val || 0), 0);
+    const newTotal = Object.values(subCategories).reduce((s, v) => s + (v || 0), 0);
 
     try {
-        await setDoc(doc(db, 'budgets', budgetId), {
-            profileId: pid, yearMonth: ym, category: cat,
-            amount: newTotalAmount, subCategories,
-            updatedAt: serverTimestamp()
+        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), {
+            ...baseBudgetDoc(cat), amount: newTotal, subCategories
         }, { merge: true });
-
         showToast(`${subName} 예산이 저장되었습니다.`);
-    } catch (error) {
-        console.error(error);
+    } catch (e) {
+        console.error(e);
     }
 };
 
 window.deleteSubBudget = async (cat, subName) => {
-    if (!confirm(`'${subName}' 항목을 삭제하시겠습니까?`)) return;
+    if (!state.currentPlanner || !confirm(`'${subName}' 항목을 삭제하시겠습니까?`)) return;
 
-    const ym       = state.currentMonth;
-    const pid      = state.currentProfile.id;
-    const budgetId = `${pid}_${ym}_${cat}`;
-
-    const existingData  = state.budgets[`${ym}_${cat}`] || {};
+    const key           = `${state.currentPlanner.id}_${cat}`;
+    const existingData  = state.budgets[key] || {};
     const subCategories = { ...(existingData.subCategories || {}) };
     delete subCategories[subName];
-
-    const newTotalAmount = Object.values(subCategories).reduce((sum, val) => sum + (val || 0), 0);
+    const newTotal = Object.values(subCategories).reduce((s, v) => s + (v || 0), 0);
 
     try {
-        await updateDoc(doc(db, 'budgets', budgetId), {
-            amount: newTotalAmount,
+        await updateDoc(doc(db, 'budgets', currentBudgetId(cat)), {
+            amount: newTotal,
             [`subCategories.${subName}`]: deleteField(),
             updatedAt: serverTimestamp()
         });
-
         showToast(`${subName} 항목이 삭제되었습니다.`);
-    } catch (error) {
-        console.error("세부 항목 삭제 실패:", error);
-        alert("항목 삭제에 실패했습니다.");
+    } catch (e) {
+        console.error(e);
+        alert('항목 삭제에 실패했습니다.');
     }
 };
-
-// Exposed for the budget-month onchange handler in HTML
-window.renderBudget = renderBudget;

@@ -316,8 +316,49 @@ body {
 }
 .tx-del:hover { background: rgba(248,113,113,0.12); color: var(--expense); }
 
+/* ── PLANNER STRIP ── */
+.planner-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 56px; /* below topbar */
+  z-index: 40;
+}
+.planner-select {
+  flex: 1;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+.planner-select:focus { border-color: var(--accent); }
+.new-planner-btn {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.new-planner-btn:hover { border-color: var(--accent); color: var(--accent2); }
+
 /* ── BUDGET ── */
-.budget-month-row { margin-bottom: 20px; }
 .budget-row {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 14px 16px;

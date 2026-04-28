@@ -6,6 +6,8 @@ export const state = {
     transactions: [],
     budgets: {},
     currentMonth: new Date().toISOString().slice(0, 7),
+    planners: [],
+    currentPlanner: null,
     friends: [],
     friendships: { sent: [], received: [] },
     friendUserMap: {}

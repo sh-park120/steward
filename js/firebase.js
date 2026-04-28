@@ -68,6 +68,12 @@ export const auth = getAuth(app);
 //       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
 //     }
 
+//     // ── budgetPlanners ──
+//     match /budgetPlanners/{plannerId} {
+//       allow create:              if isSignedIn() && isProfileMember(request.resource.data.profileId);
+//       allow read, update, delete: if isSignedIn() && isProfileMember(resource.data.profileId);
+//     }
+
 //     // ── transactions & budgets ──
 //     match /transactions/{txId} {
 //       allow create:              if isSignedIn() && isProfileMember(request.resource.data.profileId);

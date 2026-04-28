@@ -2,21 +2,35 @@ import { state } from './state.js';
 import { fmt } from './utils.js';
 
 export function renderDashboard() {
-    const ym      = state.currentMonth;
-    const monthTx = state.transactions.filter(t => t.date && t.date.startsWith(ym));
-
-    const income  = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const expense = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-
     const dashInc = document.getElementById('dash-income');
     const dashExp = document.getElementById('dash-expense');
     const dashBal = document.getElementById('dash-balance');
+    const chartContainer = document.getElementById('cat-chart');
+
+    if (!state.currentPlanner) {
+        if (dashInc) dashInc.textContent = '0원';
+        if (dashExp) dashExp.textContent = '0원';
+        if (dashBal) dashBal.textContent = '0원';
+        if (chartContainer) chartContainer.innerHTML = '<div class="empty-state" style="padding:20px;">플래너를 선택해주세요</div>';
+        return;
+    }
+
+    const pid       = state.currentPlanner.id;
+    const isDefault = state.currentPlanner.isDefault;
+
+    // All transactions for this planner
+    const plannerTx = state.transactions.filter(t =>
+        t.plannerId === pid || (!t.plannerId && isDefault)
+    );
+
+    const income  = plannerTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expense = plannerTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const balance = income - expense;
 
     if (dashInc) dashInc.textContent = fmt(income) + '원';
     if (dashExp) dashExp.textContent = fmt(expense) + '원';
 
     if (dashBal) {
-        const balance = income - expense;
         if (balance > 0) {
             dashBal.textContent = '+' + fmt(balance) + '원';
             dashBal.style.color = '#3b82f6';
@@ -29,13 +43,11 @@ export function renderDashboard() {
         }
     }
 
-    const chartContainer = document.getElementById('cat-chart');
     if (!chartContainer) return;
 
-    const expenses = monthTx.filter(t => t.type === 'expense');
-
+    const expenses = plannerTx.filter(t => t.type === 'expense');
     if (expenses.length === 0) {
-        chartContainer.innerHTML = '<div class="empty-state" style="padding: 20px;">이번 달 지출 내역이 없습니다.</div>';
+        chartContainer.innerHTML = '<div class="empty-state" style="padding: 20px;">이 플래너의 지출 내역이 없습니다.</div>';
         return;
     }
 

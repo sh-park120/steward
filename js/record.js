@@ -11,16 +11,15 @@ export function updateSubCategoryOptions() {
     if (!catEl || !subCatEl) return;
 
     const selectedCat = catEl.value;
-    const ym          = state.currentMonth;
     const type        = document.querySelector('.type-btn.active')?.dataset.type;
 
-    if (type !== 'expense' || !selectedCat) {
+    if (type !== 'expense' || !selectedCat || !state.currentPlanner) {
         subCatEl.style.display = 'none';
         subCatEl.innerHTML = '<option value="">세부 항목 (선택)</option>';
         return;
     }
 
-    const budgetData    = state.budgets[`${ym}_${selectedCat}`] || {};
+    const budgetData    = state.budgets[`${state.currentPlanner.id}_${selectedCat}`] || {};
     const subCategories = budgetData.subCategories || {};
     const subCatKeys    = Object.keys(subCategories);
 
@@ -57,10 +56,12 @@ export async function addTransaction() {
     if (!amount || amount <= 0) { showToast('금액을 정확히 입력해주세요', 'warn'); return; }
     if (!cat)               { showToast('카테고리를 선택해주세요', 'warn'); return; }
     if (!date)              { showToast('날짜를 선택해주세요', 'warn'); return; }
+    if (!state.currentPlanner) { showToast('플래너를 먼저 선택해주세요', 'warn'); return; }
 
     try {
         const txData = {
-            profileId: state.currentProfile.id,
+            profileId:  state.currentProfile.id,
+            plannerId:  state.currentPlanner.id,
             type, amount, category: cat, description: desc, date,
             createdAt: serverTimestamp()
         };
@@ -95,6 +96,6 @@ export async function deleteTx(id) {
     }
 }
 
-window.addTransaction         = addTransaction;
+window.addTransaction          = addTransaction;
 window.updateSubCategoryOptions = updateSubCategoryOptions;
-window.deleteTx               = deleteTx;
+window.deleteTx                = deleteTx;

@@ -93,11 +93,19 @@
             <button class="tab-btn"        data-tab="budget"    onclick="switchTab('budget')">💰 예산</button>
             <button class="tab-btn"        data-tab="dashboard" onclick="switchTab('dashboard')">📊 분석</button>
         </div>
+
+        <!-- Planner selector — shared context for all three tabs -->
+        <div class="planner-strip" id="planner-strip" style="display:none">
+            <select class="planner-select" id="planner-select" onchange="switchPlanner(this.value)"></select>
+            <button class="new-planner-btn" onclick="openNewPlannerModal()">＋ 새 플래너</button>
+        </div>
+
         <div class="panels">
             <!-- LEDGER -->
             <div class="panel active" id="panel-ledger">
                 <div class="ledger-controls">
-                    <input type="month" class="month-input" id="ledger-month" onchange="renderLedger()">
+                    <input type="month" class="month-input" id="ledger-month"
+                           onchange="renderLedger()" placeholder="전체 기간">
                     <select class="filter-sel" id="filter-type" onchange="renderLedger()">
                         <option value="all">전체</option>
                         <option value="income">수입만</option>
@@ -112,9 +120,8 @@
                 <div id="tx-list"></div>
             </div>
 
-            <!-- BUDGET -->
+            <!-- BUDGET (no month selector — planner is the scope) -->
             <div class="panel" id="panel-budget">
-                <div class="budget-month-row"><input type="month" class="month-input" id="budget-month" onchange="renderBudget()"></div>
                 <div id="budget-list"></div>
             </div>
 
@@ -130,6 +137,23 @@
                     <div id="cat-chart"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ── NEW PLANNER MODAL ── -->
+    <div class="modal-overlay" id="new-planner-modal" onclick="if(event.target===this)closeModal('new-planner-modal')">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">새 플래너 만들기</div>
+                <button class="modal-close" onclick="closeModal('new-planner-modal')">✕</button>
+            </div>
+            <div class="form-row">
+                <label class="form-label">플래너 이름</label>
+                <input class="form-input" id="planner-name-input"
+                       placeholder="예: 2월 생활비, 제주 여행, 결혼 준비" maxlength="20"
+                       onkeydown="if(event.key==='Enter')createPlanner()">
+            </div>
+            <button class="btn-submit" onclick="createPlanner()">만들기</button>
         </div>
     </div>
 
