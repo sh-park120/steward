@@ -6,9 +6,9 @@
       <title>셩이와 봄이의 청지기 일지</title>
       <link rel="stylesheet" href="css/style.css">
       <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-      
+
       <script>
-        // 카카오톡 인앱 브라우저 대응
+        // KakaoTalk in-app browser redirect
         var userAgent = navigator.userAgent.toLowerCase();
         if (userAgent.indexOf('kakaotalk') > -1) {
           if (userAgent.indexOf('android') > -1) {
@@ -21,10 +21,12 @@
   </head>
   <body>
     <div class="app-version">v.1.0.0</div>
+
+    <!-- ── LOGIN ── -->
     <div id="screen-login">
         <div class="login-box">
             <div class="login-logo">청<span>지기</span></div>
-            <div class="login-tagline">가계부 & 지출계획</div>
+            <div class="login-tagline">가계부 &amp; 지출계획</div>
             <div class="login-bible-verse">
                 "너희는 먼저 그의 나라와 그의 의를 구하라<br>
                 그리하면 이 모든 것을 너희에게 더하시리라"<br>
@@ -37,6 +39,7 @@
         </div>
     </div>
 
+    <!-- ── PROFILE SELECT ── -->
     <div id="screen-profile" style="display:none">
         <div class="profile-header">
             <div class="profile-header-user">
@@ -66,6 +69,7 @@
         </div>
     </div>
 
+    <!-- ── MAIN APP ── -->
     <div id="screen-app" style="display:none">
         <div class="topbar">
             <div class="topbar-left">
@@ -78,11 +82,12 @@
             <button class="fab" onclick="openAddModal()">＋</button>
         </div>
         <div class="tabs">
-            <button class="tab-btn active" data-tab="ledger" onclick="switchTab('ledger')">📒 가계부</button>
-            <button class="tab-btn" data-tab="budget" onclick="switchTab('budget')">💰 예산</button>
-            <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 분석</button>
+            <button class="tab-btn active" data-tab="ledger"    onclick="switchTab('ledger')">📒 가계부</button>
+            <button class="tab-btn"        data-tab="budget"    onclick="switchTab('budget')">💰 예산</button>
+            <button class="tab-btn"        data-tab="dashboard" onclick="switchTab('dashboard')">📊 분석</button>
         </div>
         <div class="panels">
+            <!-- LEDGER -->
             <div class="panel active" id="panel-ledger">
                 <div class="ledger-controls">
                     <input type="month" class="month-input" id="ledger-month" onchange="renderLedger()">
@@ -99,117 +104,67 @@
                 </div>
                 <div id="tx-list"></div>
             </div>
+
+            <!-- BUDGET -->
             <div class="panel" id="panel-budget">
                 <div class="budget-month-row"><input type="month" class="month-input" id="budget-month" onchange="renderBudget()"></div>
                 <div id="budget-list"></div>
             </div>
+
+            <!-- DASHBOARD -->
             <div class="panel" id="panel-dashboard">
                 <div class="dash-grid">
                     <div class="dash-card"><div class="dash-label">수입</div><div class="dash-amount income" id="dash-income">0원</div></div>
                     <div class="dash-card"><div class="dash-label">지출</div><div class="dash-amount expense" id="dash-expense">0원</div></div>
                     <div class="dash-card"><div class="dash-label">잔액</div><div class="dash-amount" id="dash-balance">0원</div></div>
                 </div>
-                <div class="dash-section"><div class="dash-section-title">카테고리별 지출</div><div id="cat-chart"></div></div>
+                <div class="dash-section">
+                    <div class="dash-section-title">카테고리별 지출</div>
+                    <div id="cat-chart"></div>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- ── ADD TRANSACTION MODAL ── -->
     <div class="modal-overlay" id="add-modal" onclick="if(event.target===this)closeModal('add-modal')">
         <div class="modal-box">
-            <div class="modal-header"><div class="modal-title">내역 추가</div><button class="modal-close" onclick="closeModal('add-modal')">✕</button></div>
-            <div class="type-row">
-                <button class="type-btn active" data-type="income" onclick="setTxType('income')">＋ 수입</button>
-                <button class="type-btn" data-type="expense" onclick="setTxType('expense')">－ 지출</button>
+            <div class="modal-header">
+                <div class="modal-title">내역 추가</div>
+                <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
             </div>
-            
-            <div class="form-row"><label class="form-label">금액</label><input class="form-input" id="tx-amount" type="text" oninput="this.value=fmtInput(this.value)" inputmode="numeric"></div>
-            
+            <div class="type-row">
+                <button class="type-btn active" data-type="income"  onclick="setTxType('income')">＋ 수입</button>
+                <button class="type-btn"        data-type="expense" onclick="setTxType('expense')">－ 지출</button>
+            </div>
+            <div class="form-row">
+                <label class="form-label">금액</label>
+                <input class="form-input" id="tx-amount" type="text" oninput="this.value=fmtInput(this.value)" inputmode="numeric">
+            </div>
             <div class="form-row">
                 <label class="form-label">카테고리</label>
                 <select class="form-input" id="tx-cat" onchange="if(window.updateSubCategoryOptions) window.updateSubCategoryOptions()"></select>
             </div>
-            
             <div class="form-row" id="subcat-row">
                 <label class="form-label">세부항목</label>
                 <select class="form-input" id="tx-subcat" style="display: none;">
                     <option value="">세부 항목 (선택)</option>
                 </select>
             </div>
-
-            <div class="form-row"><label class="form-label">메모</label><input class="form-input" id="tx-desc" type="text" placeholder="간단 메모"></div>
-            <div class="form-row"><label class="form-label">날짜</label><input class="form-input" id="tx-date" type="date"></div>
+            <div class="form-row">
+                <label class="form-label">메모</label>
+                <input class="form-input" id="tx-desc" type="text" placeholder="간단 메모">
+            </div>
+            <div class="form-row">
+                <label class="form-label">날짜</label>
+                <input class="form-input" id="tx-date" type="date">
+            </div>
             <button class="btn-submit" onclick="addTransaction()">기록하기</button>
         </div>
     </div>
 
     <div class="toast" id="toast"></div>
 
-    <script type="module" src="js/auth.js"></script>
-    <script type="module" src="js/ledger.js"></script>
     <script type="module" src="js/app.js"></script>
-    <script type="module" src="js/record.js"></script>
-
-    <script>
-        // JS 모듈에서 작성한 함수를 전역(window)에서 쓸 수 있도록 연결
-        // (record.js에서 export한 함수들이 이미 전역 객체에 등록되어 있다고 가정합니다)
-        
-        // 1. 모달 제어
-        window.openAddModal = () => {
-          document.getElementById('add-modal').classList.add('open');
-          document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
-          if(window.updateCatOptions) window.updateCatOptions();
-        };
-        
-        window.closeModal = (id) => document.getElementById(id).classList.remove('open');
-        
-        // 2. 수입/지출 타입 전환
-        window.setTxType = (type) => {
-          document.querySelectorAll('.type-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.type === type);
-          });
-          if(window.updateCatOptions) window.updateCatOptions(type);
-        };
-
-        // 🌟 카테고리 목록 업데이트 함수 (세부 항목 새로고침 로직 추가됨)
-        window.updateCatOptions = (type) => {
-          if (!type) {
-              const activeBtn = document.querySelector('.type-btn.active');
-              type = activeBtn ? activeBtn.dataset.type : 'expense'; 
-          }
-
-          const catSelect = document.getElementById('tx-cat');
-          if (!catSelect) return;
-
-          let options = [];
-          
-          if (type === 'income') {
-              options = ['월급', '용돈', '부수입', '상여금', '금융소득', '기타수입'];
-          } else {
-              options = ['식비', '카페', '교통', '쇼핑', '의료', '문화', '통신', '주거', '교육', '저축', '기타지출'];
-          }
-
-          catSelect.innerHTML = options.map(cat => `<option value="${cat}">${cat}</option>`).join('');
-          
-          // 메인 카테고리 옵션이 새로 렌더링 된 직후, 세부항목(subCategory) 목록도 맞물려서 갱신해줍니다.
-          if(window.updateSubCategoryOptions) {
-              window.updateSubCategoryOptions();
-          }
-        };
-
-        // 3. 토스트 알림
-        window.showToast = (msg, type='ok') => {
-          const t = document.getElementById('toast');
-          if(!t) return;
-          t.textContent = msg;
-          t.className = `toast show ${type}`;
-          setTimeout(() => t.classList.remove('show'), 2500);
-        };
-
-        // 4. 금액 입력 시 콤마 자동 생성
-        window.fmtInput = (v) => {
-          const n = parseInt(v.replace(/,/g,'')) || '';
-          return n ? n.toLocaleString('ko-KR') : '';
-        };
-    </script>
   </body>
 </html>
