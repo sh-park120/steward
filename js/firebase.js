@@ -15,62 +15,66 @@ export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
+// ── FIRESTORE SECURITY RULES (paste into Firebase console) ──
+//
 // rules_version = '2';
 // service cloud.firestore {
 //   match /databases/{database}/documents {
 
 //     function isSignedIn() { return request.auth != null; }
-//     function isOwner(uid) { return request.auth.uid == uid; }
+
+//     // Safe member check: handles old profiles that don't have a members field yet.
+//     // Falls back to owner check so migration updateDoc calls are allowed.
 //     function isProfileMember(profileId) {
-//       return get(/databases/$(database)/documents/profiles/$(profileId))
-//                .data.members.hasAny([request.auth.uid]);
+//       let d = get(/databases/$(database)/documents/profiles/$(profileId)).data;
+//       return d.uid == request.auth.uid
+//           || d.get('members', []).hasAny([request.auth.uid]);
 //     }
 
-//     // User profiles (public read for friend lookup)
+//     // ── users ──
 //     match /users/{uid} {
-//       allow read:   if isSignedIn();
-//       allow write:  if isSignedIn() && isOwner(uid);
+//       allow read:  if isSignedIn();
+//       allow write: if isSignedIn() && request.auth.uid == uid;
 //     }
-    
-//     // Username index (unique enforcement)
+
+//     // ── usernames (unique index) ──
 //     match /usernames/{username} {
 //       allow read:   if isSignedIn();
 //       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
 //       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
 //     }
-    
-//     // Friend requests
+
+//     // ── friendships ──
 //     match /friendships/{id} {
-//       allow read:   if isSignedIn() &&
-//                        (resource.data.fromUid == request.auth.uid ||
-//                         resource.data.toUid   == request.auth.uid);
+//       allow read:   if isSignedIn() && (resource.data.fromUid == request.auth.uid
+//                                      || resource.data.toUid   == request.auth.uid);
 //       allow create: if isSignedIn() && request.resource.data.fromUid == request.auth.uid
 //                        && request.resource.data.status == 'pending';
 //       allow update: if isSignedIn() && resource.data.toUid == request.auth.uid
 //                        && request.resource.data.status == 'accepted';
-//       allow delete: if isSignedIn() &&
-//                        (resource.data.fromUid == request.auth.uid ||
-//                         resource.data.toUid   == request.auth.uid);
+//       allow delete: if isSignedIn() && (resource.data.fromUid == request.auth.uid
+//                                      || resource.data.toUid   == request.auth.uid);
 //     }
-    
-//     // Shared profiles
+
+//     // ── profiles ──
+//     // update uses get('members', []) so it works for old profiles without a members field
+//     // (needed so the migration updateDoc from loadProfiles can succeed)
 //     match /profiles/{profileId} {
-//       // 수정된 부분: create와 read를 분리하고 조건문을 수정했습니다.
 //       allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
-//       allow read:   if isSignedIn() && 
-//                        (resource.data.uid == request.auth.uid || 
-//                         resource.data.members.hasAny([request.auth.uid]));
-//       allow update: if isSignedIn() && resource.data.members.hasAny([request.auth.uid]);
+//       allow read:   if isSignedIn() && (resource.data.uid == request.auth.uid
+//                        || resource.data.get('members', []).hasAny([request.auth.uid]));
+//       allow update: if isSignedIn() && (resource.data.uid == request.auth.uid
+//                        || resource.data.get('members', []).hasAny([request.auth.uid]));
 //       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
 //     }
-    
-//     // Transactions & budgets — any profile member can read/write
+
+//     // ── transactions & budgets ──
 //     match /transactions/{txId} {
-//       allow create: if isSignedIn() && isProfileMember(request.resource.data.profileId);
+//       allow create:              if isSignedIn() && isProfileMember(request.resource.data.profileId);
 //       allow read, update, delete: if isSignedIn() && isProfileMember(resource.data.profileId);
 //     }
 //     match /budgets/{budgetId} {
-//       allow create: if isSignedIn() && isProfileMember(request.resource.data.profileId);
+//       allow create:              if isSignedIn() && isProfileMember(request.resource.data.profileId);
 //       allow read, update, delete: if isSignedIn() && isProfileMember(resource.data.profileId);
 //     }
 //   }

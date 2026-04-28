@@ -48,21 +48,30 @@ window.selectEmoji = (emoji) => {
 export async function loadProfiles() {
     try {
         const uid = state.currentUser.uid;
-
-        // Dual query: owned profiles (covers old structure) + member profiles (new structure)
-        const [ownedSnap, memberSnap] = await Promise.all([
-            getDocs(query(collection(db, 'profiles'), where('uid', '==', uid))),
-            getDocs(query(collection(db, 'profiles'), where('members', 'array-contains', uid)))
-        ]);
-
         const byId = {};
-        [...ownedSnap.docs, ...memberSnap.docs].forEach(d => {
-            byId[d.id] = { id: d.id, ...d.data() };
-        });
+
+        // Query 1: profiles owned by this user (works for both old and new structure)
+        const ownedSnap = await getDocs(
+            query(collection(db, 'profiles'), where('uid', '==', uid))
+        );
+        ownedSnap.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; });
+
+        // Query 2: shared profiles where user is a non-owner member
+        // Kept separate so a failure here doesn't block owned profiles from loading
+        try {
+            const memberSnap = await getDocs(
+                query(collection(db, 'profiles'), where('members', 'array-contains', uid))
+            );
+            memberSnap.docs.forEach(d => { byId[d.id] = { id: d.id, ...d.data() }; });
+        } catch (e) {
+            console.warn("공유 프로필 쿼리 실패 (무시됨):", e.message);
+        }
+
         state.allProfiles = Object.values(byId);
 
         // Migrate old profiles that don't have a members field yet
-        const toMigrate = state.allProfiles.filter(p => !p.members);
+        // Only migrate profiles the current user owns (uid matches)
+        const toMigrate = state.allProfiles.filter(p => !p.members && p.uid === uid);
         if (toMigrate.length > 0) {
             await Promise.all(toMigrate.map(p =>
                 updateDoc(doc(db, 'profiles', p.id), { members: [p.uid], isShared: false })
