@@ -184,8 +184,39 @@
       }                                                                         
   }               
 
-  window.addTransaction           = addTransaction;                             
+  // Directly modifies specific fields of a transaction without opening the modal
+  export async function modifyTx(id, fields = {}) {
+      if (!id) { showToast('항목 ID가 없습니다', 'error'); return; }
+
+      const allowed = ['type', 'amount', 'category', 'subCategory', 'description', 'date'];
+      const updates = {};
+
+      for (const key of allowed) {
+          if (fields[key] !== undefined) updates[key] = fields[key];
+      }
+
+      if (fields.amount !== undefined) {
+          const amount = typeof fields.amount === 'string'
+              ? parseInt(fields.amount.replace(/,/g, ''))
+              : fields.amount;
+          if (!amount || amount <= 0) { showToast('금액을 정확히 입력해주세요', 'warn'); return; }
+          updates.amount = amount;
+      }
+
+      if (Object.keys(updates).length === 0) { showToast('수정할 항목이 없습니다', 'warn'); return; }
+
+      try {
+          await updateDoc(doc(db, 'transactions', id), updates);
+          showToast('수정 완료! ✓');
+      } catch (error) {
+          console.error("내역 수정 에러:", error);
+          showToast('수정에 실패했습니다 (권한 확인)', 'error');
+      }
+  }
+
+  window.addTransaction           = addTransaction;
   window.updateSubCategoryOptions = updateSubCategoryOptions;
-  window.deleteTx                 = deleteTx;                                   
+  window.deleteTx                 = deleteTx;
   window.editTx                   = editTx;
   window.updateTransaction        = updateTransaction;
+  window.modifyTx                 = modifyTx;
