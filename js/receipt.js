@@ -4,21 +4,21 @@ const EXPENSE_CATS = ['식비','플로잉','교통','쇼핑','의료','문화','
 const INCOME_CATS  = ['월급','용돈','부수입','상여금','금융소득','기타수입'];
 
 function getApiKey() {
-    return localStorage.getItem('anthropic_api_key');
+    return localStorage.getItem('gemini_api_key');
 }
 
 function promptForApiKey() {
     const key = prompt(
-        'Claude API 키를 입력하세요.\n' +
+        'Google Gemini API 키를 입력하세요.\n' +
         '(한 번만 입력하면 이 기기에 저장됩니다)\n\n' +
-        'https://console.anthropic.com 에서 발급받을 수 있습니다.'
+        'https://aistudio.google.com 에서 무료로 발급받을 수 있습니다.'
     );
-    if (key && key.trim().startsWith('sk-ant-')) {
-        localStorage.setItem('anthropic_api_key', key.trim());
+    if (key && key.trim().length > 10) {
+        localStorage.setItem('gemini_api_key', key.trim());
         return key.trim();
     }
     if (key !== null) {
-        showToast('유효하지 않은 API 키입니다 (sk-ant-로 시작해야 합니다)', 'error');
+        showToast('유효하지 않은 API 키입니다', 'error');
     }
     return null;
 }
@@ -49,7 +49,7 @@ async function fileToBase64(file) {
     });
 }
 
-async function callClaudeVision(base64, mediaType, apiKey) {
+async function callGeminiVision(base64, mediaType, apiKey) {
     const PROMPT = `이 영수증/결제 화면 이미지를 분석해서 다음 JSON 형식으로만 응답해주세요. 다른 텍스트는 절대 포함하지 마세요.
 
 {
@@ -69,31 +69,27 @@ async function callClaudeVision(base64, mediaType, apiKey) {
 - date는 YYYY-MM-DD 형식. 연도가 없으면 올해(${new Date().getFullYear()})로 가정
 - 값을 알 수 없으면 null로 표시`;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-calls': 'true'
-        },
-        body: JSON.stringify({
-            model: 'claude-haiku-4-5',
-            max_tokens: 256,
-            messages: [{
-                role: 'user',
-                content: [
-                    { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-                    { type: 'text', text: PROMPT }
-                ]
-            }]
-        })
-    });
+    const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [
+                        { inlineData: { mimeType: mediaType, data: base64 } },
+                        { text: PROMPT }
+                    ]
+                }],
+                generationConfig: { maxOutputTokens: 256 }
+            })
+        }
+    );
 
     if (!resp.ok) {
         const body = await resp.json().catch(() => ({}));
-        if (resp.status === 401) {
-            localStorage.removeItem('anthropic_api_key');
+        if (resp.status === 400 || resp.status === 403) {
+            localStorage.removeItem('gemini_api_key');
             const e = new Error('Invalid API key');
             e.userMessage = 'API 키가 올바르지 않습니다. 다시 시도하면 재입력 화면이 나옵니다.';
             throw e;
@@ -104,10 +100,10 @@ async function callClaudeVision(base64, mediaType, apiKey) {
     }
 
     const data = await resp.json();
-    return data.content[0].text;
+    return data.candidates[0].content.parts[0].text;
 }
 
-function parseClaudeResponse(rawText) {
+function parseAIResponse(rawText) {
     const cleaned = rawText.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, '');
     let parsed;
     try {
@@ -178,8 +174,8 @@ export async function handleReceiptFile(event) {
     setLoading(true);
     try {
         const { base64, mediaType } = await fileToBase64(file);
-        const rawJson  = await callClaudeVision(base64, mediaType, apiKey);
-        const parsed   = parseClaudeResponse(rawJson);
+        const rawJson  = await callGeminiVision(base64, mediaType, apiKey);
+        const parsed   = parseAIResponse(rawJson);
         autofillForm(parsed);
         showToast('영수증 분석 완료! 내용을 확인해주세요 ✓');
     } catch (err) {
