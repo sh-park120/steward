@@ -81,6 +81,7 @@
         <div class="topbar">
             <div class="topbar-left">
                 <button class="back-btn" onclick="backToProfiles()">←</button>
+                <button class="settings-btn" onclick="openSettingsModal()" title="설정">⚙️</button>
                 <div class="topbar-profile">
                     <span class="topbar-emoji" id="current-profile-emoji"></span>
                     <div class="topbar-name" id="current-profile-name"></div>
@@ -251,6 +252,24 @@
                 <input class="form-input" id="tx-date" type="date">
             </div>
             <button class="btn-submit" onclick="addTransaction()">기록하기</button>
+        </div>
+    </div>
+
+    <!-- ── SETTINGS MODAL ── -->
+    <div class="modal-overlay" id="settings-modal" onclick="if(event.target===this)closeModal('settings-modal')">
+        <div class="modal-box settings-modal-box">
+            <div class="modal-header">
+                <div class="modal-title">⚙️ 설정</div>
+                <button class="modal-close" onclick="closeModal('settings-modal')">✕</button>
+            </div>
+            <div class="settings-section">
+                <div class="settings-section-label">색상 테마</div>
+                <div class="theme-swatches" id="theme-swatches"></div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-section-label">배경 디자인</div>
+                <div class="bg-options" id="bg-options"></div>
+            </div>
         </div>
     </div>
 

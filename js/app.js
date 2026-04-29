@@ -1,4 +1,5 @@
 // Entry point — imports trigger all module side-effects (window assignments, listeners)
+import { loadSettings } from './settings.js';
 import { db } from './firebase.js';
 import { state } from './state.js';
 import './utils.js';
@@ -17,6 +18,8 @@ import { ensureDefaultPlanner } from './planner.js';
 import {
     collection, query, where, orderBy, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+loadSettings();
 
 function refreshAll() {
     const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'ledger';
