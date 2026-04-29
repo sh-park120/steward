@@ -70,7 +70,6 @@ export function renderLedger() {
                     <span class="tx-desc-text">${t.description || ''}</span>
                 </div>
                 <span class="tx-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${fmt(t.amount)}원</span>
-                <button class="tx-edit" onclick="editTx('${t.id}')">✏</button>
                 <button class="tx-del" onclick="deleteTx('${t.id}')">✕</button>
             </div>`).join('');
         return `<div class="day-group"><div class="day-header">${date}</div>${items}</div>`;

@@ -2,7 +2,7 @@
   import { state } from './state.js';                                           
   import { showToast } from './utils.js';                                       
   import {                                                                      
-      collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp            
+      collection, addDoc, deleteDoc, doc, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";    
                                                                                 
   export function updateSubCategoryOptions() {                                  
@@ -103,120 +103,6 @@
       }                                                                         
   }
                                                                                 
-  // Opens the add-modal pre-filled with existing transaction data for editing  
-  export function editTx(id) {
-      const tx = state.transactions.find(t => t.id === id);                     
-      if (!tx) { showToast('항목을 찾을 수 없습니다', 'error'); return; }
-                                                                                
-      // Switch modal title and submit button to edit mode, storing the target  
-  id                                                                            
-      document.querySelector('#add-modal .modal-title').textContent = '내역수정';                                                                        
-      const submitBtn = document.querySelector('#add-modal .btn-submit');
-      submitBtn.textContent = '수정하기';                                       
-      submitBtn.onclick = () => window.updateTransaction(id);
-                                                                                
-      // Set type toggle
-      if (window.setTxType) window.setTxType(tx.type);                          
-                                                                                
-      // Populate category then subcategory (updateCatOptions must run first to build options)                                                                
-      if (window.updateCatOptions) window.updateCatOptions(tx.type);            
-      document.getElementById('tx-cat').value = tx.category;
-                                                                                
-      // Rebuild subcategory list for the selected category, then restore       
-  selection                                                                     
-      if (window.updateSubCategoryOptions) window.updateSubCategoryOptions();   
-      const subCatEl = document.getElementById('tx-subcat');
-      if (subCatEl && tx.subCategory) {
-          subCatEl.value = tx.subCategory;                                      
-      }
-                                                                                
-      document.getElementById('tx-amount').value = tx.amount.toLocaleString();  
-      document.getElementById('tx-desc').value   = tx.description || '';
-      document.getElementById('tx-date').value   = tx.date;                     
-                  
-      document.getElementById('add-modal').classList.add('open');               
-  }
-                                                                                
-  // Saves edited fields back to Firestore and resets the modal to add mode     
-  export async function updateTransaction(id) {
-      const amountEl = document.getElementById('tx-amount');                    
-      const descEl   = document.getElementById('tx-desc');                      
-      const catEl    = document.getElementById('tx-cat');
-      const subCatEl = document.getElementById('tx-subcat');                    
-      const dateEl   = document.getElementById('tx-date');                      
-   
-      const type   = document.querySelector('.type-btn.active')?.dataset.type;  
-      const amount = parseInt(amountEl.value.replace(/,/g, ''));
-      const cat    = catEl.value;
-      const subCat = subCatEl ? subCatEl.value : '';                            
-      const desc   = descEl.value.trim();
-      const date   = dateEl.value;                                              
-                  
-      if (!type)                  { showToast('수입/지출을 선택해주세요', 'warn'); return; }
-      if (!amount || amount <= 0) { showToast('금액을 정확히 입력해주세요', 'warn'); return; }                                                            
-      if (!cat)                   { showToast('카테고리를 선택해주세요', 'warn'); return; }                                                            
-      if (!date)                  { showToast('날짜를 선택해주세요', 'warn'); return; }                                                                     
-   
-      try {                                                                     
-          const updates = { type, amount, category: cat, description: desc, date};
-
-          if (type === 'expense' && subCat) {                                   
-              updates.subCategory = subCat;
-          } else {                                                              
-              // Clear subCategory if type changed to income or subcat was 
-  removed                                                                       
-              updates.subCategory = '';
-          }                                                                     
-                  
-          await updateDoc(doc(db, 'transactions', id), updates);                
-   
-          showToast('수정 완료! ✓');                                            
-          if (window.closeModal) window.closeModal('add-modal');
-      } catch (error) {
-          console.error("내역 수정 에러:", error);
-          showToast('수정에 실패했습니다 (권한 확인)', 'error');                
-      } finally {
-          // Restore modal to add mode regardless of success or failure         
-          document.querySelector('#add-modal .modal-title').textContent = '내역추가';
-          const submitBtn = document.querySelector('#add-modal .btn-submit');   
-          submitBtn.textContent = '기록하기';                                   
-          submitBtn.onclick = () => window.addTransaction();
-      }                                                                         
-  }               
-
-  // Directly modifies specific fields of a transaction without opening the modal
-  export async function modifyTx(id, fields = {}) {
-      if (!id) { showToast('항목 ID가 없습니다', 'error'); return; }
-
-      const allowed = ['type', 'amount', 'category', 'subCategory', 'description', 'date'];
-      const updates = {};
-
-      for (const key of allowed) {
-          if (fields[key] !== undefined) updates[key] = fields[key];
-      }
-
-      if (fields.amount !== undefined) {
-          const amount = typeof fields.amount === 'string'
-              ? parseInt(fields.amount.replace(/,/g, ''))
-              : fields.amount;
-          if (!amount || amount <= 0) { showToast('금액을 정확히 입력해주세요', 'warn'); return; }
-          updates.amount = amount;
-      }
-
-      if (Object.keys(updates).length === 0) { showToast('수정할 항목이 없습니다', 'warn'); return; }
-
-      try {
-          await updateDoc(doc(db, 'transactions', id), updates);
-          showToast('수정 완료! ✓');
-      } catch (error) {
-          console.error("내역 수정 에러:", error);
-          showToast('수정에 실패했습니다 (권한 확인)', 'error');
-      }
-  }
-
   window.addTransaction           = addTransaction;
   window.updateSubCategoryOptions = updateSubCategoryOptions;
   window.deleteTx                 = deleteTx;
-  window.editTx                   = editTx;
-  window.updateTransaction        = updateTransaction;
-  window.modifyTx                 = modifyTx;
