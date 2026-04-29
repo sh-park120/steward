@@ -8,6 +8,11 @@ export function showScreen(name) {
 }
 
 window.openAddModal = () => {
+    document.querySelector('#add-modal .modal-title').textContent = '내역 추가';
+    const submitBtn = document.querySelector('#add-modal .btn-submit');
+    submitBtn.textContent = '기록하기';
+    submitBtn.onclick = () => window.addTransaction();
+
     document.getElementById('add-modal').classList.add('open');
     document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
     if (window.updateCatOptions)    window.updateCatOptions();
