@@ -10,7 +10,8 @@ export function showScreen(name) {
 window.openAddModal = () => {
     document.getElementById('add-modal').classList.add('open');
     document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
-    if (window.updateCatOptions) window.updateCatOptions();
+    if (window.updateCatOptions)    window.updateCatOptions();
+    if (window.clearReceiptPreview) window.clearReceiptPreview();
 };
 
 window.closeModal = (id) => document.getElementById(id).classList.remove('open');
