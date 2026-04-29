@@ -8,7 +8,6 @@ import './auth.js';
 import './profile.js';
 import './ui.js';
 import './record.js';
-import './receipt.js';
 import './planner.js';
 import { renderLedger } from './ledger.js';
 import { renderBudget } from './budget.js';

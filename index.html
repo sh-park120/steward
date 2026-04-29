@@ -228,24 +228,7 @@
                 <button class="type-btn active" data-type="income"  onclick="setTxType('income')">＋ 수입</button>
                 <button class="type-btn"        data-type="expense" onclick="setTxType('expense')">－ 지출</button>
             </div>
-            <div id="receipt-zone">
-                <input type="file" id="receipt-file-input" accept="image/*"
-                       style="display:none" onchange="handleReceiptFile(event)">
-                <button type="button" class="receipt-upload-btn" id="receipt-upload-btn"
-                        onclick="document.getElementById('receipt-file-input').click()">
-                    📷 영수증으로 자동입력
-                </button>
-                <div id="receipt-preview-wrap" style="display:none">
-                    <img id="receipt-preview-img" class="receipt-preview-img" alt="영수증 미리보기">
-                    <button type="button" class="receipt-remove-btn" onclick="clearReceiptPreview()">✕</button>
-                </div>
-                <div id="receipt-loading" class="receipt-loading" style="display:none">
-                    <div class="receipt-spinner"></div>
-                    <span>AI가 영수증을 분석 중...</span>
-                </div>
-                <div id="receipt-error" class="receipt-error" style="display:none"></div>
-            </div>
-            <div class="form-row">
+<div class="form-row">
                 <label class="form-label">금액</label>
                 <input class="form-input" id="tx-amount" type="text" oninput="this.value=fmtInput(this.value)" inputmode="numeric">
             </div>
