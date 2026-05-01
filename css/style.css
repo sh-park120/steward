@@ -268,6 +268,19 @@ body {
   border-radius: 8px; padding: 8px 10px; color: var(--text);
   font-family: 'Noto Sans KR', sans-serif; font-size: 13px; outline: none;
 }
+.view-toggle {
+  display: flex; gap: 4px; margin-left: auto;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 8px; padding: 3px;
+}
+.view-btn {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; padding: 5px 7px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.view-btn.active { background: var(--accent); color: #fff; }
+.view-btn:not(.active):hover { background: var(--border); color: var(--text); }
 .summary-strip {
   display: grid; grid-template-columns: repeat(3,1fr);
   gap: 10px; margin-bottom: 20px;
@@ -315,6 +328,23 @@ body {
   border-radius: 6px; transition: all 0.15s; flex-shrink: 0;
 }
 .tx-del:hover { background: rgba(248,113,113,0.12); color: var(--expense); }
+
+/* CATEGORY BLOCK VIEW */
+.cat-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+}
+.cat-block {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.15s;
+}
+.cat-block:hover { border-color: #3e3e52; }
+.cat-block-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.cat-block-amount { font-size: 17px; font-weight: 700; }
+.cat-block-amount.income { color: var(--income); }
+.cat-block-amount.expense { color: var(--expense); }
+.cat-block-count { font-size: 11px; color: var(--muted); }
 
 /* ── PLANNER STRIP ── */
 .planner-strip {

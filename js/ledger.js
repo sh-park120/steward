@@ -1,6 +1,15 @@
 import { state } from './state.js';
 import { fmt } from './utils.js';
 
+let ledgerView = 'row'; // 'row' | 'block'
+
+export function setLedgerView(view) {
+    ledgerView = view;
+    document.getElementById('btn-row-view')?.classList.toggle('active', view === 'row');
+    document.getElementById('btn-block-view')?.classList.toggle('active', view === 'block');
+    renderLedger();
+}
+
 export function renderLedger() {
     if (!state.currentPlanner) {
         const container = document.getElementById('tx-list');
@@ -55,6 +64,14 @@ export function renderLedger() {
         return;
     }
 
+    if (ledgerView === 'block') {
+        renderBlockView(container, txList);
+    } else {
+        renderRowView(container, txList);
+    }
+}
+
+function renderRowView(container, txList) {
     const grouped = {};
     txList.forEach(t => {
         if (!grouped[t.date]) grouped[t.date] = [];
@@ -76,5 +93,30 @@ export function renderLedger() {
     }).join('');
 }
 
+function renderBlockView(container, txList) {
+    const catMap = {};
+    txList.forEach(t => {
+        if (!catMap[t.category]) catMap[t.category] = { total: 0, count: 0, type: t.type };
+        catMap[t.category].total += t.amount;
+        catMap[t.category].count += 1;
+    });
+
+    const cards = Object.entries(catMap)
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([cat, info]) => {
+            const sign = info.type === 'income' ? '+' : '-';
+            const cls  = info.type === 'income' ? 'income' : 'expense';
+            return `
+            <div class="cat-block">
+                <div class="cat-block-name">${cat}</div>
+                <div class="cat-block-amount ${cls}">${sign}${fmt(info.total)}원</div>
+                <div class="cat-block-count">${info.count}건</div>
+            </div>`;
+        }).join('');
+
+    container.innerHTML = `<div class="cat-grid">${cards}</div>`;
+}
+
 // Exposed for the ledger-month onchange handler in HTML
 window.renderLedger = renderLedger;
+window.setLedgerView = setLedgerView;
