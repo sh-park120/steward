@@ -7,6 +7,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 window.expandedCats = window.expandedCats || {};
+let budgetView = 'row'; // 'row' | 'block'
+
+window.setBudgetView = (view) => {
+    budgetView = view;
+    document.getElementById('btn-budget-row-view')?.classList.toggle('active', view === 'row');
+    document.getElementById('btn-budget-block-view')?.classList.toggle('active', view === 'block');
+    renderBudget();
+};
 
 window.toggleCat = (cat, event) => {
     if (event && event.target.closest('.budget-input-wrap')) return;
@@ -29,19 +37,41 @@ export function renderBudget() {
         t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
     );
 
-    container.innerHTML = EXPENSE_CATEGORIES.map(cat => {
-        const key          = `${pid}_${cat}`;
-        const budgetData   = state.budgets[key] || {};
-        const budAmt       = budgetData.amount || 0;
+    const catData = EXPENSE_CATEGORIES.map(cat => {
+        const key           = `${pid}_${cat}`;
+        const budgetData    = state.budgets[key] || {};
+        const budAmt        = budgetData.amount || 0;
         const subCategories = budgetData.subCategories || {};
-        const subCatKeys   = Object.keys(subCategories);
-        const hasSubCats   = subCatKeys.length > 0;
-
+        const subCatKeys    = Object.keys(subCategories);
+        const hasSubCats    = subCatKeys.length > 0;
         const spent = plannerTx
             .filter(t => t.type === 'expense' && t.category === cat)
             .reduce((s, t) => s + t.amount, 0);
         const pct  = budAmt > 0 ? Math.min(100, Math.round((spent / budAmt) * 100)) : 0;
         const over = budAmt > 0 && spent > budAmt;
+        return { cat, budAmt, subCategories, subCatKeys, hasSubCats, spent, pct, over };
+    });
+
+    if (budgetView === 'block') {
+        container.innerHTML = `<div class="budget-grid">${catData.map(({ cat, budAmt, spent, pct, over }) => {
+            const statusCls = over ? 'bblock-over' : pct > 80 ? 'bblock-warn' : budAmt > 0 ? 'bblock-ok' : '';
+            const remainHtml = budAmt > 0
+                ? (over
+                    ? `<span class="bblock-over-text">${fmt(spent - budAmt)}원 초과</span>`
+                    : `<span class="bblock-remain-text">${fmt(budAmt - spent)}원 남음</span>`)
+                : `<span class="bblock-unset">미설정</span>`;
+            return `
+            <div class="budget-block ${statusCls}">
+                <div class="bblock-name">${cat}</div>
+                <div class="bblock-bar-bg"><div class="bblock-bar ${over ? 'over' : pct > 80 ? 'warn' : ''}" style="width:${pct}%"></div></div>
+                <div class="bblock-spent">${fmt(spent)}원 지출</div>
+                <div class="bblock-remain">${remainHtml}</div>
+            </div>`;
+        }).join('')}</div>`;
+        return;
+    }
+
+    container.innerHTML = catData.map(({ cat, budAmt, subCategories, subCatKeys, hasSubCats, spent, pct, over }) => {
         const isExpanded = window.expandedCats[cat];
 
         let subCatHtml = '';
