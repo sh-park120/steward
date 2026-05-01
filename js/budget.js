@@ -6,6 +6,66 @@ import {
     doc, setDoc, updateDoc, deleteField, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+const CAT_COLORS = [
+    '#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399',
+    '#22d3ee', '#60a5fa', '#818cf8', '#a78bfa', '#e879f9',
+    '#f472b6', '#94a3b8', '#64748b', '#2dd4bf', '#f59e0b'
+];
+
+function renderBudgetChart(catData) {
+    const container = document.getElementById('budget-chart');
+    if (!container) return;
+
+    const budgetedCats = catData.filter(c => c.budAmt > 0);
+    const total = budgetedCats.reduce((s, c) => s + c.budAmt, 0);
+
+    if (total === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const R = 70, CX = 100, CY = 100;
+    const circumference = 2 * Math.PI * R;
+
+    let cumulativeOffset = 0;
+    const slices = budgetedCats.map(c => {
+        const pct = (c.budAmt / total) * 100;
+        const dash = (c.budAmt / total) * circumference;
+        const dashOffset = circumference / 4 - cumulativeOffset;
+        cumulativeOffset += dash;
+        return { ...c, pct, dash, dashOffset, color: CAT_COLORS[EXPENSE_CATEGORIES.indexOf(c.cat)] };
+    });
+
+    const svgSlices = slices.map(s => `
+        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none"
+            stroke="${s.color}" stroke-width="30"
+            stroke-dasharray="${s.dash.toFixed(2)} ${circumference.toFixed(2)}"
+            stroke-dashoffset="${s.dashOffset.toFixed(2)}" />`
+    ).join('');
+
+    const legendItems = slices.map(s => `
+        <div class="budget-chart-legend-item">
+            <span class="budget-chart-dot" style="background:${s.color}"></span>
+            <span class="budget-chart-cat">${s.cat}</span>
+            <span class="budget-chart-pct">${s.pct.toFixed(1)}%</span>
+            <span class="budget-chart-amt">${fmt(s.budAmt)}원</span>
+        </div>`
+    ).join('');
+
+    container.innerHTML = `
+        <div class="budget-chart-wrap">
+            <div class="budget-chart-donut">
+                <svg viewBox="0 0 200 200" width="180" height="180">
+                    ${svgSlices}
+                    <text x="100" y="93" text-anchor="middle" class="chart-center-label">총 예산</text>
+                    <text x="100" y="113" text-anchor="middle" class="chart-center-amount">${fmt(total)}</text>
+                    <text x="100" y="128" text-anchor="middle" class="chart-center-unit">원</text>
+                </svg>
+            </div>
+            <div class="budget-chart-legend">${legendItems}</div>
+        </div>`;
+}
+
 window.expandedCats = window.expandedCats || {};
 let budgetView = 'row'; // 'row' | 'block'
 
@@ -51,6 +111,8 @@ export function renderBudget() {
         const over = budAmt > 0 && spent > budAmt;
         return { cat, budAmt, subCategories, subCatKeys, hasSubCats, spent, pct, over };
     });
+
+    renderBudgetChart(catData);
 
     if (budgetView === 'block') {
         container.innerHTML = `<div class="budget-grid">${catData.map(({ cat, budAmt, spent, pct, over }) => {
