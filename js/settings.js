@@ -1,5 +1,6 @@
 const LS_THEME = 'steward_theme';
 const LS_BG    = 'steward_bg';
+const LS_MODE  = 'steward_mode';
 
 const THEMES = [
     { id: 'purple', name: '보라 (기본)',  bg: '#0f0f13', accent: '#7c6af7', accent2: '#a78bfa' },
@@ -19,7 +20,14 @@ const BACKGROUNDS = [
 
 function getCurrentThemeId() { return localStorage.getItem(LS_THEME) || 'purple'; }
 function getCurrentBgId()    { return localStorage.getItem(LS_BG)    || 'plain'; }
+function getCurrentModeId()  { return localStorage.getItem(LS_MODE)  || 'dark'; }
 function isModalOpen()       { return document.getElementById('settings-modal')?.classList.contains('open'); }
+
+function applyMode(modeId) {
+    document.body.classList.toggle('light-mode', modeId === 'light');
+    localStorage.setItem(LS_MODE, modeId);
+    if (isModalOpen()) renderSettingsModal();
+}
 
 function applyTheme(themeId) {
     const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
@@ -41,6 +49,13 @@ function applyBackground(bgId) {
 function renderSettingsModal() {
     const themeId = getCurrentThemeId();
     const bgId    = getCurrentBgId();
+    const modeId  = getCurrentModeId();
+
+    document.getElementById('mode-toggle').innerHTML = `
+        <div class="mode-toggle-row">
+            <button class="mode-btn ${modeId === 'dark'  ? 'active' : ''}" onclick="applyMode('dark')">🌙 다크</button>
+            <button class="mode-btn ${modeId === 'light' ? 'active' : ''}" onclick="applyMode('light')">☀️ 라이트</button>
+        </div>`;
 
     document.getElementById('theme-swatches').innerHTML = THEMES.map(t => `
         <div class="theme-swatch ${themeId === t.id ? 'active' : ''}" onclick="applyTheme('${t.id}')">
@@ -58,6 +73,7 @@ function renderSettingsModal() {
 }
 
 export function loadSettings() {
+    applyMode(getCurrentModeId());
     applyTheme(getCurrentThemeId());
     applyBackground(getCurrentBgId());
 }
@@ -66,5 +82,6 @@ window.openSettingsModal = () => {
     renderSettingsModal();
     document.getElementById('settings-modal').classList.add('open');
 };
+window.applyMode       = applyMode;
 window.applyTheme      = applyTheme;
 window.applyBackground = applyBackground;

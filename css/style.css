@@ -949,6 +949,20 @@ body[data-theme="pink"] {
   --border: #3e1f34; --accent: #db2777; --accent2: #f472b6;
 }
 
+/* ── LIGHT MODE (placed after themes — same specificity wins by order) ── */
+body.light-mode {
+  --bg: #f0f0f7;
+  --surface: #ffffff;
+  --surface2: #e8e8f2;
+  --border: #d0d0e0;
+  --text: #1a1a2e;
+  --muted: #8888a8;
+}
+body.light-mode #screen-login {
+  background: radial-gradient(ellipse at 30% 20%, #ddd8ff 0%, var(--bg) 60%);
+}
+body.light-mode .modal-overlay { background: rgba(0,0,0,0.25); }
+
 /* ── BACKGROUND PATTERNS ── */
 body.bg-grid {
   background-image:
@@ -995,6 +1009,28 @@ body.bg-dots {
   text-transform: uppercase;
   margin-bottom: 14px;
 }
+
+/* Mode toggle */
+.mode-toggle-row { display: flex; gap: 8px; }
+.mode-btn {
+  flex: 1;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  color: var(--muted);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.mode-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.mode-btn:not(.active):hover { border-color: var(--accent); color: var(--text); }
 
 /* Theme swatch circles */
 .theme-swatches { display: flex; gap: 12px; flex-wrap: wrap; }
