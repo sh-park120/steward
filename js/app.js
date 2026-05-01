@@ -1,15 +1,12 @@
-// Entry point — imports trigger all module side-effects (window assignments, listeners)
 import { loadSettings } from './settings.js';
 import { db } from './firebase.js';
-import { state } from './state.js';
+import { state, resetProfileState } from './state.js';
 import './utils.js';
 import './user.js';
 import './friends.js';
 import './auth.js';
 import './profile.js';
-import './ui.js';
 import './record.js';
-import './planner.js';
 import { renderLedger } from './ledger.js';
 import { renderBudget } from './budget.js';
 import { renderDashboard } from './dashboard.js';
@@ -21,6 +18,10 @@ import {
 
 loadSettings();
 
+// Active Firestore listeners — stored so they can be torn down on profile switch
+let _unsubTx      = null;
+let _unsubBudgets = null;
+
 function refreshAll() {
     const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'ledger';
     if (activeTab === 'ledger')    renderLedger();
@@ -28,7 +29,6 @@ function refreshAll() {
     if (activeTab === 'dashboard') renderDashboard();
 }
 
-// Exposed so planner.js and others can trigger a re-render after state changes
 window.refreshAll = refreshAll;
 
 window.switchTab = (tab) => {
@@ -45,36 +45,45 @@ window.switchTab = (tab) => {
 
 window.initAppData = async () => {
     if (!state.currentProfile) return;
+
+    // Tear down any listeners from a previous profile session
+    if (_unsubTx)      { _unsubTx();      _unsubTx = null; }
+    if (_unsubBudgets) { _unsubBudgets(); _unsubBudgets = null; }
+
+    // Clear stale data so renders don't show the previous profile's content
+    resetProfileState();
+
     const pid = state.currentProfile.id;
 
-    // Load (or create) planners before subscriptions fire so the first render
-    // already has state.currentPlanner set
+    // Load (or create) planners before subscriptions fire so the first
+    // render already has state.currentPlanner set
     await ensureDefaultPlanner(pid);
 
-    // Real-time: all transactions for this profile (filtered by planner at render time)
-    const txQ = query(
-        collection(db, 'transactions'),
-        where('profileId', '==', pid),
-        orderBy('date', 'desc')
+    _unsubTx = onSnapshot(
+        query(
+            collection(db, 'transactions'),
+            where('profileId', '==', pid),
+            orderBy('date', 'desc')
+        ),
+        snap => {
+            state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            refreshAll();
+        }
     );
-    onSnapshot(txQ, snap => {
-        state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        refreshAll();
-    });
 
-    // Real-time: all budgets for this profile (keyed by plannerId_category)
-    const budgetQ = query(collection(db, 'budgets'), where('profileId', '==', pid));
-    onSnapshot(budgetQ, snap => {
-        state.budgets = {};
-        snap.docs.forEach(d => {
-            const data = d.data();
-            // Only index new-style budget documents that have a plannerId
-            if (data.plannerId) {
-                state.budgets[`${data.plannerId}_${data.category}`] = { id: d.id, ...data };
-            }
-        });
-        refreshAll();
-    });
+    _unsubBudgets = onSnapshot(
+        query(collection(db, 'budgets'), where('profileId', '==', pid)),
+        snap => {
+            state.budgets = {};
+            snap.docs.forEach(d => {
+                const data = d.data();
+                if (data.plannerId) {
+                    state.budgets[`${data.plannerId}_${data.category}`] = { id: d.id, ...data };
+                }
+            });
+            refreshAll();
+        }
+    );
 
     showScreen('app');
     window.switchTab('ledger');
