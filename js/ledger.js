@@ -1,7 +1,67 @@
 import { state } from './state.js';
 import { fmt } from './utils.js';
 
-let ledgerView = 'row'; // 'row' | 'block'
+let ledgerView = 'row';
+
+let currentMonthFilter = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+})();
+
+function todayYM() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function shiftMonth(ym, delta) {
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function ymToDisplay(ym) {
+    const [y, m] = ym.split('-');
+    return `${y}년 ${parseInt(m)}월`;
+}
+
+function getAvailableMonths() {
+    if (!state.currentPlanner) return [];
+    const pid = state.currentPlanner.id;
+    const plannerTx = state.transactions.filter(t =>
+        t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
+    );
+    const monthSet = new Set(plannerTx.map(t => t.date?.slice(0, 7)).filter(Boolean));
+    return [...monthSet].sort().reverse();
+}
+
+function renderMonthNav() {
+    const navEl = document.getElementById('month-nav');
+    if (!navEl) return;
+
+    const availableMonths = getAvailableMonths();
+    const isAll = currentMonthFilter === '';
+    const today = todayYM();
+    const displayLabel = isAll ? '전체 기간' : ymToDisplay(currentMonthFilter);
+    const prevYM = isAll ? today : shiftMonth(currentMonthFilter, -1);
+    const nextYM = isAll ? '' : shiftMonth(currentMonthFilter, 1);
+    const canNext = !isAll && nextYM <= today;
+
+    const chipsHtml = availableMonths.length > 0
+        ? `<div class="month-chips-row">${availableMonths.map(ym => {
+            const [y, m] = ym.split('-');
+            return `<button class="month-chip${ym === currentMonthFilter ? ' active' : ''}" onclick="setMonthFilter('${ym}')">${y.slice(2)}.${m}</button>`;
+          }).join('')}</div>`
+        : '';
+
+    navEl.innerHTML = `
+        <div class="month-nav-row">
+            <button class="month-all-btn${isAll ? ' active' : ''}" onclick="setMonthFilter('')">전체</button>
+            <button class="month-arrow" onclick="setMonthFilter('${prevYM}')"${isAll ? ' disabled' : ''}>&#9664;</button>
+            <span class="month-nav-label">${displayLabel}</span>
+            <button class="month-arrow" onclick="setMonthFilter('${nextYM}')"${!canNext ? ' disabled' : ''}>&#9654;</button>
+        </div>
+        ${chipsHtml}`;
+}
 
 export function setLedgerView(view) {
     ledgerView = view;
@@ -11,6 +71,8 @@ export function setLedgerView(view) {
 }
 
 export function renderLedger() {
+    renderMonthNav();
+
     if (!state.currentPlanner) {
         const container = document.getElementById('tx-list');
         if (container) container.innerHTML = '<div class="empty-state">플래너를 선택해주세요</div>';
@@ -20,16 +82,12 @@ export function renderLedger() {
     const pid      = state.currentPlanner.id;
     const isDefault = state.currentPlanner.isDefault;
 
-    // Primary filter: planner (old transactions without plannerId fall under default)
     let txList = state.transactions.filter(t =>
         t.plannerId === pid || (!t.plannerId && isDefault)
     );
 
-    // Secondary filter: optional month (empty input = show all dates)
-    const ym = document.getElementById('ledger-month')?.value || '';
-    if (ym) txList = txList.filter(t => t.date && t.date.startsWith(ym));
+    if (currentMonthFilter) txList = txList.filter(t => t.date && t.date.startsWith(currentMonthFilter));
 
-    // Type filter
     const filterType = document.getElementById('filter-type')?.value || 'all';
     if (filterType !== 'all') txList = txList.filter(t => t.type === filterType);
 
@@ -48,7 +106,7 @@ export function renderLedger() {
             ledgerBal.textContent = '+' + fmt(balance);
             ledgerBal.style.color = '#3b82f6';
         } else if (balance < 0) {
-            ledgerBal.textContent = '-' + fmt(balance);
+            ledgerBal.textContent = '-' + fmt(Math.abs(balance));
             ledgerBal.style.color = '#ef4444';
         } else {
             ledgerBal.textContent = '0';
@@ -117,6 +175,9 @@ function renderBlockView(container, txList) {
     container.innerHTML = `<div class="cat-grid">${cards}</div>`;
 }
 
-// Exposed for the ledger-month onchange handler in HTML
 window.renderLedger = renderLedger;
 window.setLedgerView = setLedgerView;
+window.setMonthFilter = (ym) => {
+    currentMonthFilter = ym;
+    renderLedger();
+};
