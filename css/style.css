@@ -54,7 +54,8 @@ body {
   margin-bottom: 6px;
 }
 /* ── SCREENS ── */
-#screen-login, #screen-profile, #screen-app { min-height: 100vh; }
+#screen-login, #screen-profile { min-height: 100vh; }
+#screen-app { height: 100vh; height: 100dvh; }
 
 /* ── LOGIN ── */
 #screen-login {
@@ -207,7 +208,7 @@ body {
   padding: 0 20px;
   height: 56px;
   display: flex; align-items: center; justify-content: space-between;
-  position: sticky; top: 0; z-index: 50;
+  flex-shrink: 0;
 }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
 .back-btn {
@@ -233,6 +234,7 @@ body {
 /* TABS */
 .tabs {
   display: flex;
+  flex-shrink: 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 0 16px;
@@ -248,7 +250,7 @@ body {
 .tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 
 /* PANELS */
-.panels { flex: 1; overflow-y: auto; }
+.panels { flex: 1; overflow-y: auto; min-height: 0; }
 .panel { display: none; padding: 20px 16px; max-width: 680px; margin: 0 auto; }
 .panel.active { display: block; }
 
@@ -383,14 +385,12 @@ body {
 /* ── PLANNER STRIP ── */
 .planner-strip {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 56px; /* below topbar */
-  z-index: 40;
 }
 .planner-select {
   flex: 1;
