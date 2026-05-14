@@ -327,21 +327,49 @@ export function renderDashboard() {
         } else {
             const catTotals = {};
             expenses.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
-            const sortedCats = Object.keys(catTotals)
-                .map(cat => ({ category: cat, amount: catTotals[cat] }))
+            const total = expense;
+            const cats = Object.entries(catTotals)
+                .map(([cat, amount]) => ({ cat, amount, pct: (amount / total) * 100, color: getCatColor(cat) }))
                 .sort((a, b) => b.amount - a.amount);
 
-            chartContainer.innerHTML = sortedCats.map(item => {
-                const pct = Math.round((item.amount / expense) * 100);
-                return `
-                <div class="cat-bar-row cat-clickable" onclick="showCatTxModal('${item.category}', '')">
-                    <div class="cat-bar-label">${item.category}</div>
-                    <div class="cat-bar-track">
-                        <div class="cat-bar-fill" style="width: ${pct}%"></div>
+            const R = 70, CX = 100, CY = 100;
+            const circumference = 2 * Math.PI * R;
+            let cumOffset = 0;
+            const slices = cats.map(c => {
+                const dash = (c.amount / total) * circumference;
+                const dashOffset = circumference / 4 - cumOffset;
+                cumOffset += dash;
+                return { ...c, dash, dashOffset };
+            });
+
+            const svgSlices = slices.map(s => `
+                <circle cx="${CX}" cy="${CY}" r="${R}" fill="none"
+                    stroke="${s.color}" stroke-width="30"
+                    stroke-dasharray="${s.dash.toFixed(2)} ${circumference.toFixed(2)}"
+                    stroke-dashoffset="${s.dashOffset.toFixed(2)}" />`
+            ).join('');
+
+            const legendItems = slices.map(s => `
+                <div class="donut-legend-item cat-clickable" onclick="showCatTxModal('${s.cat}', '')">
+                    <span class="donut-legend-dot" style="background:${s.color}"></span>
+                    <span class="donut-legend-cat">${s.cat}</span>
+                    <span class="donut-legend-pct">${s.pct.toFixed(1)}%</span>
+                    <span class="donut-legend-amt">${fmt(s.amount)}원</span>
+                </div>`
+            ).join('');
+
+            chartContainer.innerHTML = `
+                <div class="donut-wrap">
+                    <div class="donut-svg-wrap">
+                        <svg viewBox="0 0 200 200" width="160" height="160">
+                            ${svgSlices}
+                            <text x="100" y="93" text-anchor="middle" class="chart-center-label">지출</text>
+                            <text x="100" y="113" text-anchor="middle" class="chart-center-amount">${fmt(total)}</text>
+                            <text x="100" y="128" text-anchor="middle" class="chart-center-unit">원</text>
+                        </svg>
                     </div>
-                    <div class="cat-bar-amount">${fmt(item.amount)}원</div>
+                    <div class="donut-legend">${legendItems}</div>
                 </div>`;
-            }).join('');
         }
     }
 
