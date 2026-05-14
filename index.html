@@ -153,7 +153,17 @@
                     <div id="dash-bar5"></div>
                 </div>
                 <div class="dash-section">
-                    <div class="dash-section-title">플래너 예산 vs 실지출</div>
+                    <div class="dash-section-title-row">
+                        <div class="dash-section-title">플래너 예산 vs 실지출</div>
+                        <div class="view-toggle">
+                            <button class="view-btn active" id="btn-compare-row-view" onclick="setCompareView('row')" title="목록 보기">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="2" width="16" height="3" rx="1"/><rect x="0" y="7" width="16" height="3" rx="1"/><rect x="0" y="12" width="16" height="3" rx="1"/></svg>
+                            </button>
+                            <button class="view-btn" id="btn-compare-block-view" onclick="setCompareView('block')" title="카드 보기">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="0" width="7" height="7" rx="1"/><rect x="9" y="0" width="7" height="7" rx="1"/><rect x="0" y="9" width="7" height="7" rx="1"/><rect x="9" y="9" width="7" height="7" rx="1"/></svg>
+                            </button>
+                        </div>
+                    </div>
                     <div id="dash-compare"></div>
                 </div>
                 <div class="dash-section">

@@ -13,6 +13,8 @@ function getCatColor(cat) {
     return CAT_COLORS[idx >= 0 ? idx : CAT_COLORS.length - 1];
 }
 
+let compareView = 'row';
+
 let dashMonth = (() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -232,30 +234,7 @@ function renderComparison() {
             : `<span class="compare-diff-over">▲ ${fmt(Math.abs(totalDiff))}원 초과</span>`
         : '<span class="compare-diff-none">-</span>';
 
-    const rowsHtml = rows.map(({ cat, planned, actual, diff }) => {
-        const pct  = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : 0;
-        const over = planned > 0 && actual > planned;
-        let diffHtml;
-        if (planned === 0)  diffHtml = `<span class="compare-diff-none">예산 미설정</span>`;
-        else if (over)      diffHtml = `<span class="compare-diff-over">▲ ${fmt(Math.abs(diff))}원 초과</span>`;
-        else                diffHtml = `<span class="compare-diff-under">▼ ${fmt(diff)}원 남음</span>`;
-
-        return `
-        <div class="compare-row cat-clickable" onclick="showCatTxModal('${cat}', '${dashMonth}')">
-            <div class="compare-row-top">
-                <span class="compare-cat">${cat}</span>
-                <span class="compare-diff">${diffHtml}</span>
-            </div>
-            <div class="compare-amounts">
-                <span class="compare-planned">${planned > 0 ? fmt(planned) + '원' : '미설정'}</span>
-                <span class="compare-arrow">→</span>
-                <span class="compare-actual${over ? ' over' : ''}">${fmt(actual)}원</span>
-            </div>
-            ${planned > 0 ? `<div class="compare-bar-bg"><div class="compare-bar${over ? ' over' : pct > 80 ? ' warn' : ''}" style="width:${pct}%"></div></div>` : ''}
-        </div>`;
-    }).join('');
-
-    container.innerHTML = `
+    const summaryHtml = `
         <div class="compare-summary">
             <div class="compare-summary-item">
                 <span class="compare-summary-label">예산 합계</span>
@@ -269,8 +248,54 @@ function renderComparison() {
                 <span class="compare-summary-label">차액</span>
                 <span class="compare-summary-val">${totalDiffHtml}</span>
             </div>
-        </div>
-        <div class="compare-list">${rowsHtml}</div>`;
+        </div>`;
+
+    if (compareView === 'block') {
+        const blocksHtml = rows.map(({ cat, planned, actual, diff }) => {
+            const pct  = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : 0;
+            const over = planned > 0 && actual > planned;
+            const statusCls = over ? 'cblock-over' : pct > 80 ? 'cblock-warn' : planned > 0 ? 'cblock-ok' : '';
+            let remainHtml;
+            if (planned === 0)  remainHtml = `<span class="cblock-unset">예산 미설정</span>`;
+            else if (over)      remainHtml = `<span class="cblock-over-text">▲ ${fmt(Math.abs(diff))}원 초과</span>`;
+            else                remainHtml = `<span class="cblock-remain-text">▼ ${fmt(diff)}원 남음</span>`;
+
+            return `
+            <div class="compare-block ${statusCls} cat-clickable" onclick="showCatTxModal('${cat}', '${dashMonth}')">
+                <div class="cblock-name">${cat}</div>
+                <div class="cblock-bar-bg"><div class="cblock-bar${over ? ' over' : pct > 80 ? ' warn' : ''}" style="width:${pct}%"></div></div>
+                <div class="cblock-spent">${fmt(actual)}원 지출</div>
+                <div class="cblock-remain">${remainHtml}</div>
+            </div>`;
+        }).join('');
+
+        container.innerHTML = summaryHtml + `<div class="compare-block-grid">${blocksHtml}</div>`;
+    } else {
+        const rowsHtml = rows.map(({ cat, planned, actual, diff }) => {
+            const pct  = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : 0;
+            const over = planned > 0 && actual > planned;
+            let diffHtml;
+            if (planned === 0)  diffHtml = `<span class="compare-diff-none">예산 미설정</span>`;
+            else if (over)      diffHtml = `<span class="compare-diff-over">▲ ${fmt(Math.abs(diff))}원 초과</span>`;
+            else                diffHtml = `<span class="compare-diff-under">▼ ${fmt(diff)}원 남음</span>`;
+
+            return `
+            <div class="compare-row cat-clickable" onclick="showCatTxModal('${cat}', '${dashMonth}')">
+                <div class="compare-row-top">
+                    <span class="compare-cat">${cat}</span>
+                    <span class="compare-diff">${diffHtml}</span>
+                </div>
+                <div class="compare-amounts">
+                    <span class="compare-planned">${planned > 0 ? fmt(planned) + '원' : '미설정'}</span>
+                    <span class="compare-arrow">→</span>
+                    <span class="compare-actual${over ? ' over' : ''}">${fmt(actual)}원</span>
+                </div>
+                ${planned > 0 ? `<div class="compare-bar-bg"><div class="compare-bar${over ? ' over' : pct > 80 ? ' warn' : ''}" style="width:${pct}%"></div></div>` : ''}
+            </div>`;
+        }).join('');
+
+        container.innerHTML = summaryHtml + `<div class="compare-list">${rowsHtml}</div>`;
+    }
 }
 
 // ── Main render ──
@@ -446,4 +471,11 @@ window.showCatTxModal = (cat, month) => {
 
 window.closeCatTxModal = () => {
     document.getElementById('cat-tx-modal')?.classList.remove('open');
+};
+
+window.setCompareView = (view) => {
+    compareView = view;
+    document.getElementById('btn-compare-row-view')?.classList.toggle('active', view === 'row');
+    document.getElementById('btn-compare-block-view')?.classList.toggle('active', view === 'block');
+    renderComparison();
 };

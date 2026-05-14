@@ -123,7 +123,7 @@ export function renderBudget() {
                     : `<span class="bblock-remain-text">${fmt(budAmt - spent)}원 남음</span>`)
                 : `<span class="bblock-unset">미설정</span>`;
             return `
-            <div class="budget-block ${statusCls}">
+            <div class="budget-block ${statusCls} cat-clickable" onclick="showCatTxModal('${cat}', '')">
                 <div class="bblock-name">${cat}</div>
                 <div class="bblock-bar-bg"><div class="bblock-bar ${over ? 'over' : pct > 80 ? 'warn' : ''}" style="width:${pct}%"></div></div>
                 <div class="bblock-spent">${fmt(spent)}원 지출</div>
@@ -178,8 +178,9 @@ export function renderBudget() {
             <div class="budget-row" style="margin-bottom: 16px;">
                 <div class="budget-main-area" onclick="toggleCat('${cat}', event)" style="cursor: pointer; padding: 6px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='transparent'">
                     <div class="budget-row-top" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="budget-cat" style="user-select: none;">
+                        <span class="budget-cat" style="user-select: none; display:flex; align-items:center; gap:6px;">
                             ${isExpanded ? '🔽' : '▶️'} ${cat}
+                            <button class="budget-history-btn" onclick="event.stopPropagation(); showCatTxModal('${cat}', '')" title="내역 보기">내역</button>
                         </span>
                         <div class="budget-input-wrap" onclick="event.stopPropagation()">
                             <input type="text" class="budget-input" id="budget-input-${cat}"
