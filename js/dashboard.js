@@ -101,7 +101,7 @@ function renderMonthlyDonut() {
     ).join('');
 
     const legendItems = slices.map(s => `
-        <div class="donut-legend-item">
+        <div class="donut-legend-item cat-clickable" onclick="showCatTxModal('${s.cat}', '${dashMonth}')">
             <span class="donut-legend-dot" style="background:${s.color}"></span>
             <span class="donut-legend-cat">${s.cat}</span>
             <span class="donut-legend-pct">${s.pct.toFixed(1)}%</span>
@@ -241,7 +241,7 @@ function renderComparison() {
         else                diffHtml = `<span class="compare-diff-under">▼ ${fmt(diff)}원 남음</span>`;
 
         return `
-        <div class="compare-row">
+        <div class="compare-row cat-clickable" onclick="showCatTxModal('${cat}', '${dashMonth}')">
             <div class="compare-row-top">
                 <span class="compare-cat">${cat}</span>
                 <span class="compare-diff">${diffHtml}</span>
@@ -334,7 +334,7 @@ export function renderDashboard() {
             chartContainer.innerHTML = sortedCats.map(item => {
                 const pct = Math.round((item.amount / expense) * 100);
                 return `
-                <div class="cat-bar-row">
+                <div class="cat-bar-row cat-clickable" onclick="showCatTxModal('${item.category}', '')">
                     <div class="cat-bar-label">${item.category}</div>
                     <div class="cat-bar-track">
                         <div class="cat-bar-fill" style="width: ${pct}%"></div>
@@ -357,4 +357,65 @@ window.setDashMonth = (ym) => {
     renderMonthlyDonut();
     renderBar5();
     renderComparison();
+};
+
+// ── Category transaction modal ──
+
+window.showCatTxModal = (cat, month) => {
+    if (!state.currentPlanner) return;
+    const pid = state.currentPlanner.id;
+    const isDefault = state.currentPlanner.isDefault;
+
+    let txList = state.transactions.filter(t =>
+        (t.plannerId === pid || (!t.plannerId && isDefault)) &&
+        t.type === 'expense' &&
+        t.category === cat
+    );
+    if (month) txList = txList.filter(t => t.date?.startsWith(month));
+    txList = txList.sort((a, b) => b.date?.localeCompare(a.date));
+
+    const total = txList.reduce((s, t) => s + t.amount, 0);
+
+    const titleEl = document.getElementById('cat-tx-modal-title');
+    const summaryEl = document.getElementById('cat-tx-summary');
+    const listEl = document.getElementById('cat-tx-list');
+
+    if (titleEl) {
+        titleEl.textContent = month
+            ? `${cat} · ${month.slice(0, 4)}년 ${parseInt(month.slice(5))}월`
+            : `${cat} · 전체`;
+    }
+
+    if (summaryEl) {
+        summaryEl.innerHTML = `<span class="cat-tx-total-label">합계</span><span class="cat-tx-total-val">${fmt(total)}원</span>`;
+    }
+
+    if (listEl) {
+        if (txList.length === 0) {
+            listEl.innerHTML = '<div class="empty-state" style="padding:20px;">내역이 없습니다</div>';
+        } else {
+            const grouped = {};
+            txList.forEach(t => {
+                if (!grouped[t.date]) grouped[t.date] = [];
+                grouped[t.date].push(t);
+            });
+            listEl.innerHTML = Object.keys(grouped).sort((a, b) => b.localeCompare(a)).map(date => {
+                const items = grouped[date].map(t => `
+                    <div class="tx-item">
+                        <div class="tx-info">
+                            <span class="tx-cat">${t.category}</span>
+                            <span class="tx-desc-text">${t.description || ''}</span>
+                        </div>
+                        <span class="tx-amount expense">-${fmt(t.amount)}원</span>
+                    </div>`).join('');
+                return `<div class="day-group"><div class="day-header">${date}</div>${items}</div>`;
+            }).join('');
+        }
+    }
+
+    document.getElementById('cat-tx-modal')?.classList.add('open');
+};
+
+window.closeCatTxModal = () => {
+    document.getElementById('cat-tx-modal')?.classList.remove('open');
 };

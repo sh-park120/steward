@@ -172,6 +172,18 @@
         </div>
     </div>
 
+    <!-- ── CATEGORY TX MODAL ── -->
+    <div class="modal-overlay" id="cat-tx-modal" onclick="if(event.target===this)closeCatTxModal()">
+        <div class="modal-box cat-tx-modal-box">
+            <div class="modal-header">
+                <div class="modal-title" id="cat-tx-modal-title"></div>
+                <button class="modal-close" onclick="closeCatTxModal()">✕</button>
+            </div>
+            <div class="cat-tx-summary" id="cat-tx-summary"></div>
+            <div class="cat-tx-list" id="cat-tx-list"></div>
+        </div>
+    </div>
+
     <!-- ── NEW PLANNER MODAL ── -->
     <div class="modal-overlay" id="new-planner-modal" onclick="if(event.target===this)closeModal('new-planner-modal')">
         <div class="modal-box">

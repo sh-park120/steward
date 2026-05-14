@@ -523,6 +523,8 @@ body {
   font-size: 12px; font-weight: 700; color: var(--muted);
   letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;
 }
+.cat-clickable { cursor: pointer; transition: opacity 0.15s; }
+.cat-clickable:hover { opacity: 0.75; }
 .cat-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .cat-bar-label { width: 80px; font-size: 12px; color: var(--muted); flex-shrink: 0; }
 .cat-bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
@@ -1169,6 +1171,17 @@ body.bg-dots {
   opacity: 1;
   transform: rotate(30deg);
 }
+
+/* ── CATEGORY TX MODAL ── */
+.cat-tx-modal-box { max-height: 80vh; display: flex; flex-direction: column; }
+.cat-tx-summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; background: var(--surface2); border-radius: 10px;
+  margin-bottom: 16px;
+}
+.cat-tx-total-label { font-size: 12px; color: var(--muted); }
+.cat-tx-total-val   { font-size: 16px; font-weight: 700; color: var(--expense); }
+.cat-tx-list { flex: 1; overflow-y: auto; min-height: 0; }
 
 /* ── SETTINGS MODAL ── */
 .settings-modal-box { padding-bottom: 40px; }
