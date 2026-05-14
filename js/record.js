@@ -1,8 +1,8 @@
- import { db } from './firebase.js';                                           
-  import { state } from './state.js';                                           
-  import { showToast } from './utils.js';                                       
-  import {                                                                      
-      collection, addDoc, deleteDoc, doc, serverTimestamp
+ import { db } from './firebase.js';
+  import { state } from './state.js';
+  import { showToast } from './utils.js';
+  import {
+      collection, addDoc, deleteDoc, updateDoc, doc, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";    
                                                                                 
   export function updateSubCategoryOptions() {                                  
@@ -103,6 +103,39 @@
       }                                                                         
   }
                                                                                 
+  export async function updateTransaction(id) {
+      const amountEl = document.getElementById('tx-amount');
+      const descEl   = document.getElementById('tx-desc');
+      const catEl    = document.getElementById('tx-cat');
+      const subCatEl = document.getElementById('tx-subcat');
+      const dateEl   = document.getElementById('tx-date');
+
+      const type   = document.querySelector('.type-btn.active')?.dataset.type;
+      const amount = parseInt(amountEl.value.replace(/,/g, ''));
+      const cat    = catEl.value;
+      const subCat = subCatEl ? subCatEl.value : '';
+      const desc   = descEl.value.trim();
+      const date   = dateEl.value;
+
+      if (!type)              { showToast('수입/지출을 선택해주세요', 'warn'); return; }
+      if (!amount || amount <= 0) { showToast('금액을 정확히 입력해주세요', 'warn'); return; }
+      if (!cat)               { showToast('카테고리를 선택해주세요', 'warn'); return; }
+      if (!date)              { showToast('날짜를 선택해주세요', 'warn'); return; }
+
+      try {
+          const txData = { type, amount, category: cat, description: desc, date };
+          if (type === 'expense' && subCat) txData.subCategory = subCat;
+
+          await updateDoc(doc(db, 'transactions', id), txData);
+          showToast('수정되었습니다 ✓');
+          if (window.closeModal) window.closeModal('add-modal');
+      } catch (error) {
+          console.error("내역 수정 에러:", error);
+          showToast('수정에 실패했습니다', 'error');
+      }
+  }
+
   window.addTransaction           = addTransaction;
+  window.updateTransaction        = updateTransaction;
   window.updateSubCategoryOptions = updateSubCategoryOptions;
   window.deleteTx                 = deleteTx;

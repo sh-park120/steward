@@ -14,11 +14,36 @@ window.openAddModal = () => {
     submitBtn.onclick = () => window.addTransaction();
 
     document.getElementById('add-modal').classList.add('open');
-    document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
-    if (window.updateCatOptions)    window.updateCatOptions();
+    document.getElementById('tx-amount').value = '';
+    document.getElementById('tx-desc').value   = '';
+    document.getElementById('tx-date').value   = new Date().toISOString().slice(0, 10);
+    window.setTxType('income');
+    if (window.updateCatOptions) window.updateCatOptions();
 };
 
 window.closeModal = (id) => document.getElementById(id).classList.remove('open');
+
+window.openEditModal = (tx) => {
+    document.querySelector('#add-modal .modal-title').textContent = '내역 수정';
+    const submitBtn = document.querySelector('#add-modal .btn-submit');
+    submitBtn.textContent = '수정하기';
+    submitBtn.onclick = () => window.updateTransaction(tx.id);
+
+    document.getElementById('add-modal').classList.add('open');
+
+    window.setTxType(tx.type);
+    if (window.updateCatOptions) window.updateCatOptions(tx.type);
+
+    document.getElementById('tx-cat').value = tx.category;
+    if (window.updateSubCategoryOptions) window.updateSubCategoryOptions();
+
+    const subCatEl = document.getElementById('tx-subcat');
+    if (subCatEl && tx.subCategory) subCatEl.value = tx.subCategory;
+
+    document.getElementById('tx-amount').value = tx.amount.toLocaleString();
+    document.getElementById('tx-desc').value   = tx.description || '';
+    document.getElementById('tx-date').value   = tx.date;
+};
 
 window.setTxType = (type) => {
     document.querySelectorAll('.type-btn').forEach(b => {

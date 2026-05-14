@@ -1,6 +1,11 @@
 import { state } from './state.js';
 import { fmt } from './utils.js';
 
+window.openEditTx = (id) => {
+    const tx = state.transactions.find(t => t.id === id);
+    if (tx && window.openEditModal) window.openEditModal(tx);
+};
+
 let ledgerView = 'row';
 
 let currentMonthFilter = (() => {
@@ -139,6 +144,7 @@ function renderRowView(container, txList) {
                     <span class="tx-desc-text">${t.description || ''}</span>
                 </div>
                 <span class="tx-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${fmt(t.amount)}원</span>
+                <button class="tx-edit" onclick="openEditTx('${t.id}')">✏</button>
                 <button class="tx-del" onclick="deleteTx('${t.id}')">✕</button>
             </div>`).join('');
         return `<div class="day-group"><div class="day-header">${date}</div>${items}</div>`;
