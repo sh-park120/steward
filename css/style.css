@@ -523,6 +523,11 @@ body {
   font-size: 12px; font-weight: 700; color: var(--muted);
   letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;
 }
+.dash-section-title-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.dash-section-title-row .dash-section-title { margin-bottom: 0; }
 .cat-clickable { cursor: pointer; transition: opacity 0.15s; }
 .cat-clickable:hover { opacity: 0.75; }
 .cat-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }

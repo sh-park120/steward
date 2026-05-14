@@ -63,12 +63,6 @@ function renderMonthNav() {
         ${chipsHtml}`;
 }
 
-export function setLedgerView(view) {
-    ledgerView = view;
-    document.getElementById('btn-row-view')?.classList.toggle('active', view === 'row');
-    document.getElementById('btn-block-view')?.classList.toggle('active', view === 'block');
-    renderLedger();
-}
 
 export function renderLedger() {
     renderMonthNav();
@@ -176,7 +170,6 @@ function renderBlockView(container, txList) {
 }
 
 window.renderLedger = renderLedger;
-window.setLedgerView = setLedgerView;
 window.setMonthFilter = (ym) => {
     currentMonthFilter = ym;
     renderLedger();

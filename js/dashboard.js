@@ -13,6 +13,8 @@ function getCatColor(cat) {
     return CAT_COLORS[idx >= 0 ? idx : CAT_COLORS.length - 1];
 }
 
+let dashView = 'row';
+
 let dashMonth = (() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -273,6 +275,71 @@ function renderComparison() {
         <div class="compare-list">${rowsHtml}</div>`;
 }
 
+// ── Payment log list (row / block) ──
+
+function renderDashTxList() {
+    const container = document.getElementById('dash-tx-list');
+    if (!container) return;
+
+    if (!state.currentPlanner) {
+        container.innerHTML = '<div class="empty-state" style="padding:20px;">플래너를 선택해주세요</div>';
+        return;
+    }
+
+    const pid = state.currentPlanner.id;
+    const isDefault = state.currentPlanner.isDefault;
+
+    let txList = state.transactions.filter(t =>
+        t.plannerId === pid || (!t.plannerId && isDefault)
+    );
+    if (dashMonth) txList = txList.filter(t => t.date?.startsWith(dashMonth));
+    txList = txList.sort((a, b) => b.date?.localeCompare(a.date));
+
+    if (txList.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:20px;">내역이 없습니다</div>';
+        return;
+    }
+
+    if (dashView === 'block') {
+        const catMap = {};
+        txList.forEach(t => {
+            if (!catMap[t.category]) catMap[t.category] = { total: 0, count: 0, type: t.type };
+            catMap[t.category].total += t.amount;
+            catMap[t.category].count += 1;
+        });
+        const cards = Object.entries(catMap)
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(([cat, info]) => {
+                const sign = info.type === 'income' ? '+' : '-';
+                const cls  = info.type === 'income' ? 'income' : 'expense';
+                return `
+                <div class="cat-block">
+                    <div class="cat-block-name">${cat}</div>
+                    <div class="cat-block-amount ${cls}">${sign}${fmt(info.total)}원</div>
+                    <div class="cat-block-count">${info.count}건</div>
+                </div>`;
+            }).join('');
+        container.innerHTML = `<div class="cat-grid">${cards}</div>`;
+    } else {
+        const grouped = {};
+        txList.forEach(t => {
+            if (!grouped[t.date]) grouped[t.date] = [];
+            grouped[t.date].push(t);
+        });
+        container.innerHTML = Object.keys(grouped).sort((a, b) => b.localeCompare(a)).map(date => {
+            const items = grouped[date].map(t => `
+                <div class="tx-item">
+                    <div class="tx-info">
+                        <span class="tx-cat">${t.category}</span>
+                        <span class="tx-desc-text">${t.description || ''}</span>
+                    </div>
+                    <span class="tx-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${fmt(t.amount)}원</span>
+                </div>`).join('');
+            return `<div class="day-group"><div class="day-header">${date}</div>${items}</div>`;
+        }).join('');
+    }
+}
+
 // ── Main render ──
 
 export function renderDashboard() {
@@ -349,6 +416,7 @@ export function renderDashboard() {
     renderMonthlyDonut();
     renderBar5();
     renderComparison();
+    renderDashTxList();
 }
 
 window.setDashMonth = (ym) => {
@@ -357,6 +425,7 @@ window.setDashMonth = (ym) => {
     renderMonthlyDonut();
     renderBar5();
     renderComparison();
+    renderDashTxList();
 };
 
 // ── Category transaction modal ──
@@ -418,4 +487,11 @@ window.showCatTxModal = (cat, month) => {
 
 window.closeCatTxModal = () => {
     document.getElementById('cat-tx-modal')?.classList.remove('open');
+};
+
+window.setDashView = (view) => {
+    dashView = view;
+    document.getElementById('btn-dash-row-view')?.classList.toggle('active', view === 'row');
+    document.getElementById('btn-dash-block-view')?.classList.toggle('active', view === 'block');
+    renderDashTxList();
 };
