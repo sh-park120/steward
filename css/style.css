@@ -728,6 +728,27 @@ body {
 }
 .compare-bar.warn { background: var(--warn); }
 .compare-bar.over { background: var(--expense); }
+.cat-filter-modes {
+  display: flex; gap: 6px; margin-bottom: 4px;
+}
+.cat-filter-mode-btn {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 20px; padding: 4px 14px;
+  color: var(--muted); font-size: 12px; cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.cat-filter-mode-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.cat-filter-mode-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+.cat-filter-period-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+}
+.cat-filter-date {
+  flex: 1; background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; color: var(--text);
+  font-size: 12px; font-family: 'Noto Sans KR', sans-serif;
+}
+.cat-filter-sep { color: var(--muted); font-size: 13px; flex-shrink: 0; }
 .compare-block-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

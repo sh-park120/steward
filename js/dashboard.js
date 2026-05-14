@@ -15,6 +15,8 @@ function getCatColor(cat) {
 
 let compareView = 'row';
 
+let catFilter = { mode: 'all', month: '', from: '', to: '' };
+
 let dashMonth = (() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -298,6 +300,55 @@ function renderComparison() {
     }
 }
 
+// ── Cat-chart filter ──
+
+function getFilteredCatExpenses(plannerTx) {
+    let expenses = plannerTx.filter(t => t.type === 'expense');
+    if (catFilter.mode === 'month' && catFilter.month) {
+        expenses = expenses.filter(t => t.date?.startsWith(catFilter.month));
+    } else if (catFilter.mode === 'period' && catFilter.from && catFilter.to) {
+        expenses = expenses.filter(t => t.date >= catFilter.from && t.date <= catFilter.to);
+    }
+    return expenses;
+}
+
+function renderCatChartFilter(plannerTx) {
+    const el = document.getElementById('cat-chart-filter');
+    if (!el) return;
+
+    const allMonths = [...new Set(
+        plannerTx.map(t => t.date?.slice(0, 7)).filter(Boolean)
+    )].sort().reverse();
+
+    const modeBtn = (mode, label) =>
+        `<button class="cat-filter-mode-btn${catFilter.mode === mode ? ' active' : ''}" onclick="setCatFilterMode('${mode}')">${label}</button>`;
+
+    let extraHtml = '';
+    if (catFilter.mode === 'month') {
+        extraHtml = `<div class="month-chips-row" style="margin-top:8px;">${
+            allMonths.map(ym => {
+                const [y, m] = ym.split('-');
+                return `<button class="month-chip${catFilter.month === ym ? ' active' : ''}" onclick="setCatFilterMonth('${ym}')">${y.slice(2)}.${m}</button>`;
+            }).join('')
+        }</div>`;
+    } else if (catFilter.mode === 'period') {
+        extraHtml = `
+        <div class="cat-filter-period-row">
+            <input type="date" id="cat-filter-from" class="cat-filter-date" value="${catFilter.from}" onchange="updateCatFilterPeriod()">
+            <span class="cat-filter-sep">~</span>
+            <input type="date" id="cat-filter-to"   class="cat-filter-date" value="${catFilter.to}"   onchange="updateCatFilterPeriod()">
+        </div>`;
+    }
+
+    el.innerHTML = `
+        <div class="cat-filter-modes">
+            ${modeBtn('all',    '전체')}
+            ${modeBtn('month',  '월별')}
+            ${modeBtn('period', '기간')}
+        </div>
+        ${extraHtml}`;
+}
+
 // ── Main render ──
 
 export function renderDashboard() {
@@ -345,14 +396,16 @@ export function renderDashboard() {
         }
     }
 
+    renderCatChartFilter(plannerTx);
+
     if (chartContainer) {
-        const expenses = plannerTx.filter(t => t.type === 'expense');
+        const expenses = getFilteredCatExpenses(plannerTx);
         if (expenses.length === 0) {
-            chartContainer.innerHTML = '<div class="empty-state" style="padding:20px;">이 플래너의 지출 내역이 없습니다.</div>';
+            chartContainer.innerHTML = '<div class="empty-state" style="padding:20px;">해당 기간의 지출 내역이 없습니다.</div>';
         } else {
             const catTotals = {};
             expenses.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
-            const total = expense;
+            const total = expenses.reduce((s, t) => s + t.amount, 0);
             const cats = Object.entries(catTotals)
                 .map(([cat, amount]) => ({ cat, amount, pct: (amount / total) * 100, color: getCatColor(cat) }))
                 .sort((a, b) => b.amount - a.amount);
@@ -374,8 +427,9 @@ export function renderDashboard() {
                     stroke-dashoffset="${s.dashOffset.toFixed(2)}" />`
             ).join('');
 
+            const modalMonth = catFilter.mode === 'month' ? catFilter.month : '';
             const legendItems = slices.map(s => `
-                <div class="donut-legend-item cat-clickable" onclick="showCatTxModal('${s.cat}', '')">
+                <div class="donut-legend-item cat-clickable" onclick="showCatTxModal('${s.cat}', '${modalMonth}')">
                     <span class="donut-legend-dot" style="background:${s.color}"></span>
                     <span class="donut-legend-cat">${s.cat}</span>
                     <span class="donut-legend-pct">${s.pct.toFixed(1)}%</span>
@@ -478,4 +532,22 @@ window.setCompareView = (view) => {
     document.getElementById('btn-compare-row-view')?.classList.toggle('active', view === 'row');
     document.getElementById('btn-compare-block-view')?.classList.toggle('active', view === 'block');
     renderComparison();
+};
+
+window.setCatFilterMode = (mode) => {
+    catFilter = { mode, month: '', from: '', to: '' };
+    renderDashboard();
+};
+
+window.setCatFilterMonth = (ym) => {
+    catFilter = { mode: 'month', month: ym, from: '', to: '' };
+    renderDashboard();
+};
+
+window.updateCatFilterPeriod = () => {
+    const from = document.getElementById('cat-filter-from')?.value || '';
+    const to   = document.getElementById('cat-filter-to')?.value   || '';
+    catFilter.from = from;
+    catFilter.to   = to;
+    renderDashboard();
 };
