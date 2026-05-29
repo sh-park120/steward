@@ -1,5 +1,5 @@
-import { state } from './state.js';
-import { fmt } from './utils.js';
+import { state, filters }                        from './state.js';
+import { fmt, ymToDisplay, shiftMonth, todayYM } from './utils.js';
 
 window.openEditTx = (id) => {
     const tx = state.transactions.find(t => t.id === id);
@@ -7,29 +7,6 @@ window.openEditTx = (id) => {
 };
 
 let ledgerView = 'row';
-
-let currentMonthFilter = (() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-})();
-
-let currentTagFilters = new Set();
-
-function todayYM() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function shiftMonth(ym, delta) {
-    const [y, m] = ym.split('-').map(Number);
-    const d = new Date(y, m - 1 + delta, 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function ymToDisplay(ym) {
-    const [y, m] = ym.split('-');
-    return `${y}년 ${parseInt(m)}월`;
-}
 
 function getAvailableMonths() {
     if (!state.currentPlanner) return [];
@@ -46,17 +23,17 @@ function renderMonthNav() {
     if (!navEl) return;
 
     const availableMonths = getAvailableMonths();
-    const isAll = currentMonthFilter === '';
+    const ym    = filters.ledger.month;
+    const isAll = ym === '';
     const today = todayYM();
-    const displayLabel = isAll ? '전체 기간' : ymToDisplay(currentMonthFilter);
-    const prevYM = isAll ? today : shiftMonth(currentMonthFilter, -1);
-    const nextYM = isAll ? '' : shiftMonth(currentMonthFilter, 1);
+    const prevYM  = isAll ? today : shiftMonth(ym, -1);
+    const nextYM  = isAll ? '' : shiftMonth(ym, 1);
     const canNext = !isAll && nextYM <= today;
 
     const chipsHtml = availableMonths.length > 0
-        ? `<div class="month-chips-row">${availableMonths.map(ym => {
-            const [y, m] = ym.split('-');
-            return `<button class="month-chip${ym === currentMonthFilter ? ' active' : ''}" onclick="setMonthFilter('${ym}')">${y.slice(2)}.${m}</button>`;
+        ? `<div class="month-chips-row">${availableMonths.map(m => {
+            const [y, mo] = m.split('-');
+            return `<button class="month-chip${m === ym ? ' active' : ''}" onclick="setMonthFilter('${m}')">${y.slice(2)}.${mo}</button>`;
           }).join('')}</div>`
         : '';
 
@@ -64,7 +41,7 @@ function renderMonthNav() {
         <div class="month-nav-row">
             <button class="month-all-btn${isAll ? ' active' : ''}" onclick="setMonthFilter('')">전체</button>
             <button class="month-arrow" onclick="setMonthFilter('${prevYM}')"${isAll ? ' disabled' : ''}>&#9664;</button>
-            <span class="month-nav-label">${displayLabel}</span>
+            <span class="month-nav-label">${isAll ? '전체 기간' : ymToDisplay(ym)}</span>
             <button class="month-arrow" onclick="setMonthFilter('${nextYM}')"${!canNext ? ' disabled' : ''}>&#9654;</button>
         </div>
         ${chipsHtml}`;
@@ -73,15 +50,12 @@ function renderMonthNav() {
 function renderTagFilter(allTags) {
     const el = document.getElementById('tag-filter-row');
     if (!el) return;
-    if (allTags.length === 0) {
-        el.innerHTML = '';
-        return;
-    }
-    const isAll = currentTagFilters.size === 0;
+    if (allTags.length === 0) { el.innerHTML = ''; return; }
+    const isAll = filters.ledger.tags.size === 0;
     el.innerHTML =
         `<button class="tag-filter-chip${isAll ? ' active' : ''}" onclick="setTagFilter(null)">전체</button>` +
         allTags.map(tag => {
-            const active = currentTagFilters.has(tag);
+            const active  = filters.ledger.tags.has(tag);
             const escaped = tag.replace(/'/g, "\\'");
             return `<button class="tag-filter-chip${active ? ' active' : ''}" onclick="setTagFilter('${escaped}')">${tag}</button>`;
         }).join('');
@@ -96,14 +70,15 @@ export function renderLedger() {
         return;
     }
 
-    const pid      = state.currentPlanner.id;
+    const pid       = state.currentPlanner.id;
     const isDefault = state.currentPlanner.isDefault;
 
     let txList = state.transactions.filter(t =>
         t.plannerId === pid || (!t.plannerId && isDefault)
     );
 
-    if (currentMonthFilter) txList = txList.filter(t => t.date && t.date.startsWith(currentMonthFilter));
+    const ym = filters.ledger.month;
+    if (ym) txList = txList.filter(t => t.date?.startsWith(ym));
 
     const filterType = document.getElementById('filter-type')?.value || 'all';
     if (filterType !== 'all') txList = txList.filter(t => t.type === filterType);
@@ -111,8 +86,8 @@ export function renderLedger() {
     const allTags = [...new Set(txList.flatMap(t => t.tags || []))].sort();
     renderTagFilter(allTags);
 
-    if (currentTagFilters.size > 0) {
-        txList = txList.filter(t => (t.tags || []).some(tag => currentTagFilters.has(tag)));
+    if (filters.ledger.tags.size > 0) {
+        txList = txList.filter(t => (t.tags || []).some(tag => filters.ledger.tags.has(tag)));
     }
 
     const income  = txList.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -146,11 +121,7 @@ export function renderLedger() {
         return;
     }
 
-    if (ledgerView === 'block') {
-        renderBlockView(container, txList);
-    } else {
-        renderRowView(container, txList);
-    }
+    ledgerView === 'block' ? renderBlockView(container, txList) : renderRowView(container, txList);
 }
 
 function renderRowView(container, txList) {
@@ -163,10 +134,10 @@ function renderRowView(container, txList) {
     const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
     container.innerHTML = dates.map(date => {
         const items = grouped[date].map(t => {
-            const tagsHtml = (t.tags && t.tags.length > 0)
+            const tagsHtml = t.tags?.length
                 ? `<div class="tx-tags">${t.tags.map(tag => {
                     const escaped = tag.replace(/'/g, "\\'");
-                    return `<span class="tx-tag-chip" onclick="setTagFilter('${escaped}')" data-tag="${tag}">${tag}</span>`;
+                    return `<span class="tx-tag-chip" onclick="setTagFilter('${escaped}')">${tag}</span>`;
                   }).join('')}</div>`
                 : '';
             return `
@@ -197,11 +168,10 @@ function renderBlockView(container, txList) {
         .sort((a, b) => b[1].total - a[1].total)
         .map(([cat, info]) => {
             const sign = info.type === 'income' ? '+' : '-';
-            const cls  = info.type === 'income' ? 'income' : 'expense';
             return `
             <div class="cat-block">
                 <div class="cat-block-name">${cat}</div>
-                <div class="cat-block-amount ${cls}">${sign}${fmt(info.total)}원</div>
+                <div class="cat-block-amount ${info.type}">${sign}${fmt(info.total)}원</div>
                 <div class="cat-block-count">${info.count}건</div>
             </div>`;
         }).join('');
@@ -209,18 +179,15 @@ function renderBlockView(container, txList) {
     container.innerHTML = `<div class="cat-grid">${cards}</div>`;
 }
 
-window.renderLedger = renderLedger;
-window.setMonthFilter = (ym) => {
-    currentMonthFilter = ym;
-    renderLedger();
-};
-window.setTagFilter = (tag) => {
+window.renderLedger   = renderLedger;
+window.setMonthFilter = (ym) => { filters.ledger.month = ym; renderLedger(); };
+window.setTagFilter   = (tag) => {
     if (tag === null) {
-        currentTagFilters.clear();
-    } else if (currentTagFilters.has(tag)) {
-        currentTagFilters.delete(tag);
+        filters.ledger.tags.clear();
+    } else if (filters.ledger.tags.has(tag)) {
+        filters.ledger.tags.delete(tag);
     } else {
-        currentTagFilters.add(tag);
+        filters.ledger.tags.add(tag);
     }
     renderLedger();
 };

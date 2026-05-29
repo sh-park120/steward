@@ -1,47 +1,26 @@
 import { db } from './firebase.js';
 import { state } from './state.js';
-import { fmt, showToast } from './utils.js';
-import { EXPENSE_CATEGORIES } from './constants.js';
+import { fmt, parseAmount, showToast } from './utils.js';
+import { EXPENSE_CATEGORIES, getCatColor } from './constants.js';
+import { buildDonutSlices, buildDonutSVGCircles } from './charts.js';
 import {
     doc, setDoc, updateDoc, deleteField, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const CAT_COLORS = [
-    '#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399',
-    '#22d3ee', '#60a5fa', '#818cf8', '#a78bfa', '#e879f9',
-    '#f472b6', '#94a3b8', '#64748b', '#2dd4bf', '#f59e0b'
-];
+let expandedCats = {};
+let budgetView   = 'row';
 
 function renderBudgetChart(catData) {
     const container = document.getElementById('budget-chart');
     if (!container) return;
 
     const budgetedCats = catData.filter(c => c.budAmt > 0);
-    const total = budgetedCats.reduce((s, c) => s + c.budAmt, 0);
+    const total        = budgetedCats.reduce((s, c) => s + c.budAmt, 0);
 
-    if (total === 0) {
-        container.innerHTML = '';
-        return;
-    }
+    if (total === 0) { container.innerHTML = ''; return; }
 
-    const R = 70, CX = 100, CY = 100;
-    const circumference = 2 * Math.PI * R;
-
-    let cumulativeOffset = 0;
-    const slices = budgetedCats.map(c => {
-        const pct = (c.budAmt / total) * 100;
-        const dash = (c.budAmt / total) * circumference;
-        const dashOffset = circumference / 4 - cumulativeOffset;
-        cumulativeOffset += dash;
-        return { ...c, pct, dash, dashOffset, color: CAT_COLORS[EXPENSE_CATEGORIES.indexOf(c.cat)] };
-    });
-
-    const svgSlices = slices.map(s => `
-        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none"
-            stroke="${s.color}" stroke-width="30"
-            stroke-dasharray="${s.dash.toFixed(2)} ${circumference.toFixed(2)}"
-            stroke-dashoffset="${s.dashOffset.toFixed(2)}" />`
-    ).join('');
+    const items  = budgetedCats.map(c => ({ ...c, amount: c.budAmt, color: getCatColor(c.cat) }));
+    const slices = buildDonutSlices(items).map(s => ({ ...s, pct: (s.amount / total) * 100 }));
 
     const legendItems = slices.map(s => `
         <div class="budget-chart-legend-item">
@@ -49,14 +28,13 @@ function renderBudgetChart(catData) {
             <span class="budget-chart-cat">${s.cat}</span>
             <span class="budget-chart-pct">${s.pct.toFixed(1)}%</span>
             <span class="budget-chart-amt">${fmt(s.budAmt)}원</span>
-        </div>`
-    ).join('');
+        </div>`).join('');
 
     container.innerHTML = `
         <div class="budget-chart-wrap">
             <div class="budget-chart-donut">
                 <svg viewBox="0 0 200 200" width="180" height="180">
-                    ${svgSlices}
+                    ${buildDonutSVGCircles(slices)}
                     <text x="100" y="93" text-anchor="middle" class="chart-center-label">총 예산</text>
                     <text x="100" y="113" text-anchor="middle" class="chart-center-amount">${fmt(total)}</text>
                     <text x="100" y="128" text-anchor="middle" class="chart-center-unit">원</text>
@@ -65,9 +43,6 @@ function renderBudgetChart(catData) {
             <div class="budget-chart-legend">${legendItems}</div>
         </div>`;
 }
-
-window.expandedCats = window.expandedCats || {};
-let budgetView = 'row'; // 'row' | 'block'
 
 window.setBudgetView = (view) => {
     budgetView = view;
@@ -78,7 +53,7 @@ window.setBudgetView = (view) => {
 
 window.toggleCat = (cat, event) => {
     if (event && event.target.closest('.budget-input-wrap')) return;
-    window.expandedCats[cat] = !window.expandedCats[cat];
+    expandedCats[cat] = !expandedCats[cat];
     renderBudget();
 };
 
@@ -91,9 +66,8 @@ export function renderBudget() {
         return;
     }
 
-    const pid        = state.currentPlanner.id;
-    // Transactions in this planner (old transactions without plannerId belong to default)
-    const plannerTx  = state.transactions.filter(t =>
+    const pid       = state.currentPlanner.id;
+    const plannerTx = state.transactions.filter(t =>
         t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
     );
 
@@ -116,11 +90,11 @@ export function renderBudget() {
 
     if (budgetView === 'block') {
         container.innerHTML = `<div class="budget-grid">${catData.map(({ cat, budAmt, spent, pct, over }) => {
-            const statusCls = over ? 'bblock-over' : pct > 80 ? 'bblock-warn' : budAmt > 0 ? 'bblock-ok' : '';
+            const statusCls  = over ? 'bblock-over' : pct > 80 ? 'bblock-warn' : budAmt > 0 ? 'bblock-ok' : '';
             const remainHtml = budAmt > 0
-                ? (over
+                ? over
                     ? `<span class="bblock-over-text">${fmt(spent - budAmt)}원 초과</span>`
-                    : `<span class="bblock-remain-text">${fmt(budAmt - spent)}원 남음</span>`)
+                    : `<span class="bblock-remain-text">${fmt(budAmt - spent)}원 남음</span>`
                 : `<span class="bblock-unset">미설정</span>`;
             return `
             <div class="budget-block ${statusCls} cat-clickable" onclick="showCatTxModal('${cat}', '')">
@@ -134,51 +108,50 @@ export function renderBudget() {
     }
 
     container.innerHTML = catData.map(({ cat, budAmt, subCategories, subCatKeys, hasSubCats, spent, pct, over }) => {
-        const isExpanded = window.expandedCats[cat];
+        const isExpanded = expandedCats[cat];
 
         let subCatHtml = '';
         if (isExpanded) {
             const subListHtml = subCatKeys.map(subName => {
-                const subAmt   = subCategories[subName];
-                const subSpent = plannerTx
+                const subAmt     = subCategories[subName];
+                const safeSubName = subName.replace(/\s+/g, '');
+                const subSpent   = plannerTx
                     .filter(t => t.type === 'expense' && t.category === cat && t.subCategory === subName)
                     .reduce((s, t) => s + t.amount, 0);
-                const safeSubName = subName.replace(/\s+/g, '');
-
                 return `
-                    <div class="sub-budget-row" style="display:flex; justify-content:space-between; align-items:center; margin: 6px 0 6px 12px; padding: 6px; border-left: 2px solid var(--accent); background: #fdfdfd;">
-                        <div style="display:flex; flex-direction:column; gap:2px;">
-                            <span style="font-size: 13px; color: #555; font-weight: bold;">- ${subName}</span>
-                            <span style="font-size: 11px; color: #888;">지출: ${fmt(subSpent)}원</span>
+                    <div class="sub-budget-row">
+                        <div class="sub-budget-info">
+                            <span class="sub-budget-name">- ${subName}</span>
+                            <span class="sub-budget-spent">지출: ${fmt(subSpent)}원</span>
                         </div>
                         <div class="budget-input-wrap">
-                            <input type="text" class="budget-input" id="sub-input-${cat}-${safeSubName}"
+                            <input type="text" class="budget-input sub-input" id="sub-input-${cat}-${safeSubName}"
                                    value="${subAmt > 0 ? fmt(subAmt) : ''}"
-                                   placeholder="세부 예산" style="width: 70px; font-size: 12px;"
+                                   placeholder="세부 예산"
                                    oninput="this.value=window.fmtInput(this.value)">
-                            <span class="budget-unit" style="font-size: 12px;">원</span>
-                            <button onclick="saveSubBudget('${cat}', '${subName}', '${safeSubName}')" style="background:#ddd; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px; margin-left:4px;">저장</button>
-                            <button onclick="deleteSubBudget('${cat}', '${subName}')" style="background:#ffdddd; color:#cc0000; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:11px; margin-left:2px;">삭제</button>
+                            <span class="budget-unit">원</span>
+                            <button class="sub-save-btn" onclick="saveSubBudget('${cat}', '${subName}', '${safeSubName}')">저장</button>
+                            <button class="sub-delete-btn" onclick="deleteSubBudget('${cat}', '${subName}')">삭제</button>
                         </div>
                     </div>`;
             }).join('');
 
             subCatHtml = `
-                <div class="sub-budget-container" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 8px;">
-                    <div style="font-size: 12px; color: #666; margin-bottom: 8px; font-weight: bold;">👇 세부 예산 설정</div>
+                <div class="sub-budget-container">
+                    <div class="sub-budget-header">세부 예산 설정</div>
                     ${subListHtml}
-                    <div style="display:flex; gap: 6px; margin-top: 10px; margin-left: 12px;">
-                        <input type="text" id="new-sub-name-${cat}" placeholder="새 항목 (예: 회식)" style="padding: 4px; font-size: 12px; flex: 1; border: 1px solid #ddd; border-radius: 4px;">
-                        <button onclick="addSubCategory('${cat}')" style="background:var(--accent); color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:12px;">+ 추가</button>
+                    <div class="sub-budget-new-row">
+                        <input type="text" id="new-sub-name-${cat}" class="sub-budget-name-input" placeholder="새 항목 (예: 회식)">
+                        <button class="sub-budget-add-btn" onclick="addSubCategory('${cat}')">+ 추가</button>
                     </div>
                 </div>`;
         }
 
         return `
-            <div class="budget-row" style="margin-bottom: 16px;">
-                <div class="budget-main-area" onclick="toggleCat('${cat}', event)" style="cursor: pointer; padding: 6px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='transparent'">
-                    <div class="budget-row-top" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="budget-cat" style="user-select: none; display:flex; align-items:center; gap:6px;">
+            <div class="budget-row">
+                <div class="budget-main-area" onclick="toggleCat('${cat}', event)">
+                    <div class="budget-row-top">
+                        <span class="budget-cat">
                             ${isExpanded ? '🔽' : '▶️'} ${cat}
                             <button class="budget-history-btn" onclick="event.stopPropagation(); showCatTxModal('${cat}', '')" title="내역 보기">내역</button>
                         </span>
@@ -187,23 +160,23 @@ export function renderBudget() {
                                    value="${budAmt > 0 ? fmt(budAmt) : ''}"
                                    placeholder="${hasSubCats ? '자동 합산됨' : '총 예산 입력'}"
                                    ${hasSubCats
-                                       ? 'readonly style="background:#efefef; color:#888;" title="세부 항목의 합계입니다"'
+                                       ? 'readonly title="세부 항목의 합계입니다"'
                                        : 'oninput="this.value=window.fmtInput(this.value)"'}>
                             <span class="budget-unit">원</span>
                             ${hasSubCats
-                                ? `<span style="font-size:11px; color:#888; margin-left:4px; font-weight:bold;">(합산)</span>`
-                                : `<button onclick="saveBudget('${cat}')" style="background:var(--accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; margin-left:4px;">저장</button>`}
+                                ? `<span class="budget-sum-label">(합산)</span>`
+                                : `<button class="budget-save-btn" onclick="saveBudget('${cat}')">저장</button>`}
                         </div>
                     </div>
-                    <div class="budget-bar-bg" style="margin-top: 8px;">
+                    <div class="budget-bar-bg" style="margin-top:8px">
                         <div class="budget-bar ${over ? 'over' : pct > 80 ? 'warn' : ''}" style="width:${pct}%"></div>
                     </div>
-                    <div class="budget-stat" style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 12px;">
+                    <div class="budget-stat">
                         <span>${fmt(spent)}원 지출</span>
                         <span>${budAmt > 0
-                            ? (over
+                            ? over
                                 ? `<span class="over-text">${fmt(spent - budAmt)}원 초과</span>`
-                                : `<span class="remain-text">${fmt(budAmt - spent)}원 남음</span>`)
+                                : `<span class="remain-text">${fmt(budAmt - spent)}원 남음</span>`
                             : '예산을 설정해주세요'}</span>
                     </div>
                 </div>
@@ -215,18 +188,14 @@ export function renderBudget() {
 // ── Budget save helpers ──
 
 function currentBudgetId(cat) {
-    const pid      = state.currentProfile.id;
-    const plannerId = state.currentPlanner.id;
-    return `${pid}_${plannerId}_${cat}`;
+    return `${state.currentProfile.id}_${state.currentPlanner.id}_${cat}`;
 }
 
 function baseBudgetDoc(cat) {
-    const pid       = state.currentProfile.id;
-    const plannerId  = state.currentPlanner.id;
     return {
-        profileId: pid,
-        plannerId,
-        category: cat,
+        profileId: state.currentProfile.id,
+        plannerId: state.currentPlanner.id,
+        category:  cat,
         updatedAt: serverTimestamp()
     };
 }
@@ -234,42 +203,34 @@ function baseBudgetDoc(cat) {
 window.saveBudget = async (cat) => {
     const inputEl = document.getElementById(`budget-input-${cat}`);
     if (!inputEl || !state.currentPlanner) return;
-
-    const amount = parseInt(inputEl.value.replace(/,/g, '')) || 0;
-
+    const amount = parseAmount(inputEl);
     try {
-        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), {
-            ...baseBudgetDoc(cat), amount
-        }, { merge: true });
+        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), { ...baseBudgetDoc(cat), amount }, { merge: true });
         showToast(`${cat} 예산이 저장되었습니다!`);
     } catch (e) {
         console.error(e);
-        alert('예산 저장에 권한 문제가 있거나 실패했습니다.');
+        showToast('예산 저장에 실패했습니다', 'error');
     }
 };
 
 window.addSubCategory = async (cat) => {
     if (!state.currentPlanner) return;
     const nameInput = document.getElementById(`new-sub-name-${cat}`);
-    const subName   = nameInput.value.trim();
-    if (!subName) return alert('세부항목 이름을 입력하세요.');
+    const subName   = nameInput?.value.trim();
+    if (!subName) { showToast('세부항목 이름을 입력하세요', 'warn'); return; }
 
     const key           = `${state.currentPlanner.id}_${cat}`;
-    const existingData  = state.budgets[key] || {};
-    const subCategories = { ...(existingData.subCategories || {}) };
+    const subCategories = { ...(state.budgets[key]?.subCategories || {}) };
+    if (subCategories[subName] !== undefined) { showToast('이미 존재하는 세부항목입니다', 'warn'); return; }
 
-    if (subCategories[subName] !== undefined) return alert('이미 존재하는 세부항목입니다.');
     subCategories[subName] = 0;
     const newTotal = Object.values(subCategories).reduce((s, v) => s + (v || 0), 0);
-
     try {
-        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), {
-            ...baseBudgetDoc(cat), amount: newTotal, subCategories
-        }, { merge: true });
-        showToast(`${subName} 항목이 추가되었습니다.`);
+        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), { ...baseBudgetDoc(cat), amount: newTotal, subCategories }, { merge: true });
+        showToast(`${subName} 항목이 추가되었습니다`);
     } catch (e) {
         console.error(e);
-        alert('항목 추가에 실패했습니다.');
+        showToast('항목 추가에 실패했습니다', 'error');
     }
 };
 
@@ -278,20 +239,16 @@ window.saveSubBudget = async (cat, subName, safeSubName) => {
     const inputEl = document.getElementById(`sub-input-${cat}-${safeSubName}`);
     if (!inputEl) return;
 
-    const amount        = parseInt(inputEl.value.replace(/,/g, '')) || 0;
     const key           = `${state.currentPlanner.id}_${cat}`;
-    const existingData  = state.budgets[key] || {};
-    const subCategories = { ...(existingData.subCategories || {}) };
-    subCategories[subName] = amount;
+    const subCategories = { ...(state.budgets[key]?.subCategories || {}) };
+    subCategories[subName] = parseAmount(inputEl);
     const newTotal = Object.values(subCategories).reduce((s, v) => s + (v || 0), 0);
-
     try {
-        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), {
-            ...baseBudgetDoc(cat), amount: newTotal, subCategories
-        }, { merge: true });
-        showToast(`${subName} 예산이 저장되었습니다.`);
+        await setDoc(doc(db, 'budgets', currentBudgetId(cat)), { ...baseBudgetDoc(cat), amount: newTotal, subCategories }, { merge: true });
+        showToast(`${subName} 예산이 저장되었습니다`);
     } catch (e) {
         console.error(e);
+        showToast('저장에 실패했습니다', 'error');
     }
 };
 
@@ -299,20 +256,18 @@ window.deleteSubBudget = async (cat, subName) => {
     if (!state.currentPlanner || !confirm(`'${subName}' 항목을 삭제하시겠습니까?`)) return;
 
     const key           = `${state.currentPlanner.id}_${cat}`;
-    const existingData  = state.budgets[key] || {};
-    const subCategories = { ...(existingData.subCategories || {}) };
+    const subCategories = { ...(state.budgets[key]?.subCategories || {}) };
     delete subCategories[subName];
     const newTotal = Object.values(subCategories).reduce((s, v) => s + (v || 0), 0);
-
     try {
         await updateDoc(doc(db, 'budgets', currentBudgetId(cat)), {
             amount: newTotal,
             [`subCategories.${subName}`]: deleteField(),
             updatedAt: serverTimestamp()
         });
-        showToast(`${subName} 항목이 삭제되었습니다.`);
+        showToast(`${subName} 항목이 삭제되었습니다`);
     } catch (e) {
         console.error(e);
-        alert('항목 삭제에 실패했습니다.');
+        showToast('삭제에 실패했습니다', 'error');
     }
 };

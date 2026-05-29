@@ -1,6 +1,6 @@
 import { db } from './firebase.js';
 import { state } from './state.js';
-import { showToast } from './utils.js';
+import { parseAmount, showToast } from './utils.js';
 import {
     collection, addDoc, deleteDoc, updateDoc, doc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -24,7 +24,6 @@ export function updateSubCategoryOptions() {
     const subCatKeys    = Object.keys(subCategories);
 
     subCatEl.innerHTML = '<option value="">세부 항목 (선택)</option>';
-
     if (subCatKeys.length > 0) {
         subCatEl.style.display = 'block';
         subCatKeys.forEach(sub => {
@@ -46,17 +45,17 @@ export async function addTransaction() {
     const dateEl   = document.getElementById('tx-date');
 
     const type   = document.querySelector('.type-btn.active')?.dataset.type;
-    const amount = parseInt(amountEl.value.replace(/,/g, ''));
+    const amount = parseAmount(amountEl);
     const cat    = catEl.value;
-    const subCat = subCatEl ? subCatEl.value : '';
+    const subCat = subCatEl?.value || '';
     const desc   = descEl.value.trim();
     const date   = dateEl.value;
     const tags   = window.getModalTags ? window.getModalTags() : [];
 
-    if (!type)               { showToast('수입/지출을 선택해주세요', 'warn'); return; }
+    if (!type)              { showToast('수입/지출을 선택해주세요', 'warn'); return; }
     if (!amount || amount <= 0) { showToast('금액을 정확히 입력해주세요', 'warn'); return; }
-    if (!cat)                { showToast('카테고리를 선택해주세요', 'warn'); return; }
-    if (!date)               { showToast('날짜를 선택해주세요', 'warn'); return; }
+    if (!cat)               { showToast('카테고리를 선택해주세요', 'warn'); return; }
+    if (!date)              { showToast('날짜를 선택해주세요', 'warn'); return; }
     if (!state.currentPlanner) { showToast('플래너를 먼저 선택해주세요', 'warn'); return; }
 
     try {
@@ -66,21 +65,16 @@ export async function addTransaction() {
             type, amount, category: cat, description: desc, date, tags,
             createdAt: serverTimestamp()
         };
-
-        if (type === 'expense' && subCat) {
-            txData.subCategory = subCat;
-        }
+        if (type === 'expense' && subCat) txData.subCategory = subCat;
 
         await addDoc(collection(db, 'transactions'), txData);
-
         amountEl.value = '';
         descEl.value   = '';
         if (subCatEl) subCatEl.value = '';
-
         showToast('기록 완료! ✓');
         if (window.closeModal) window.closeModal('add-modal');
     } catch (error) {
-        console.error("내역 추가 에러:", error);
+        console.error('내역 추가 에러:', error);
         showToast('저장에 실패했습니다 (권한 확인)', 'error');
     }
 }
@@ -91,7 +85,7 @@ export async function deleteTx(id) {
             await deleteDoc(doc(db, 'transactions', id));
             showToast('삭제되었습니다', 'warn');
         } catch (error) {
-            console.error("내역 삭제 에러:", error);
+            console.error('내역 삭제 에러:', error);
             showToast('삭제 권한이 없습니다', 'error');
         }
     }
@@ -105,27 +99,26 @@ export async function updateTransaction(id) {
     const dateEl   = document.getElementById('tx-date');
 
     const type   = document.querySelector('.type-btn.active')?.dataset.type;
-    const amount = parseInt(amountEl.value.replace(/,/g, ''));
+    const amount = parseAmount(amountEl);
     const cat    = catEl.value;
-    const subCat = subCatEl ? subCatEl.value : '';
+    const subCat = subCatEl?.value || '';
     const desc   = descEl.value.trim();
     const date   = dateEl.value;
     const tags   = window.getModalTags ? window.getModalTags() : [];
 
-    if (!type)               { showToast('수입/지출을 선택해주세요', 'warn'); return; }
+    if (!type)              { showToast('수입/지출을 선택해주세요', 'warn'); return; }
     if (!amount || amount <= 0) { showToast('금액을 정확히 입력해주세요', 'warn'); return; }
-    if (!cat)                { showToast('카테고리를 선택해주세요', 'warn'); return; }
-    if (!date)               { showToast('날짜를 선택해주세요', 'warn'); return; }
+    if (!cat)               { showToast('카테고리를 선택해주세요', 'warn'); return; }
+    if (!date)              { showToast('날짜를 선택해주세요', 'warn'); return; }
 
     try {
         const txData = { type, amount, category: cat, description: desc, date, tags };
         if (type === 'expense' && subCat) txData.subCategory = subCat;
-
         await updateDoc(doc(db, 'transactions', id), txData);
         showToast('수정되었습니다 ✓');
         if (window.closeModal) window.closeModal('add-modal');
     } catch (error) {
-        console.error("내역 수정 에러:", error);
+        console.error('내역 수정 에러:', error);
         showToast('수정에 실패했습니다', 'error');
     }
 }

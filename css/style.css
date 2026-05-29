@@ -540,6 +540,56 @@ body {
 .over-text { color: var(--expense); font-weight: 700; }
 .remain-text { color: var(--income); }
 
+/* Budget main clickable area */
+.budget-main-area { cursor: pointer; padding: 6px; border-radius: 8px; transition: background 0.2s; }
+.budget-main-area:hover { background: var(--surface2); }
+.budget-save-btn {
+  background: var(--accent); color: #fff; border: none;
+  padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 4px;
+}
+.budget-save-btn:hover { background: var(--accent2); }
+.budget-sum-label { font-size: 11px; color: var(--muted); margin-left: 4px; font-weight: 600; }
+.budget-input.sub-input { width: 70px; font-size: 12px; }
+
+/* Sub-budget section */
+.sub-budget-container {
+  margin-top: 10px; padding: 10px;
+  background: var(--surface2); border-radius: 8px;
+}
+.sub-budget-header { font-size: 12px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+.sub-budget-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin: 6px 0 6px 12px; padding: 8px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface); border-radius: 4px;
+}
+.sub-budget-info { display: flex; flex-direction: column; gap: 2px; }
+.sub-budget-name  { font-size: 13px; color: var(--text); font-weight: 600; }
+.sub-budget-spent { font-size: 11px; color: var(--muted); }
+.sub-budget-new-row { display: flex; gap: 6px; margin-top: 10px; margin-left: 12px; }
+.sub-budget-name-input {
+  padding: 4px 8px; font-size: 12px; flex: 1;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif; outline: none;
+}
+.sub-budget-name-input:focus { border-color: var(--accent); }
+.sub-budget-add-btn {
+  background: var(--accent); color: #fff; border: none;
+  padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+.sub-budget-add-btn:hover { background: var(--accent2); }
+.sub-save-btn {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-left: 4px;
+}
+.sub-save-btn:hover { border-color: var(--accent); color: var(--accent2); }
+.sub-delete-btn {
+  background: rgba(248,113,113,0.15); color: var(--expense); border: none;
+  padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-left: 2px;
+}
+.sub-delete-btn:hover { background: rgba(248,113,113,0.3); }
+
 /* ── BUDGET CHART ── */
 .budget-chart-wrap {
   display: flex;

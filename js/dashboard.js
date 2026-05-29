@@ -1,31 +1,7 @@
-import { state } from './state.js';
-import { fmt } from './utils.js';
-import { EXPENSE_CATEGORIES } from './constants.js';
-
-const CAT_COLORS = [
-    '#f87171', '#fb923c', '#fbbf24', '#a3e635', '#34d399',
-    '#22d3ee', '#60a5fa', '#818cf8', '#a78bfa', '#e879f9',
-    '#f472b6', '#94a3b8', '#64748b', '#2dd4bf', '#f59e0b', '#9ca3af'
-];
-
-function getCatColor(cat) {
-    const idx = EXPENSE_CATEGORIES.indexOf(cat);
-    return CAT_COLORS[idx >= 0 ? idx : CAT_COLORS.length - 1];
-}
-
-let compareView = 'row';
-
-let catFilter = { mode: 'all', month: '', from: '', to: '' };
-
-let dashMonth = (() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-})();
-
-function ymToDisplay(ym) {
-    const [y, m] = ym.split('-');
-    return `${y}년 ${parseInt(m)}월`;
-}
+import { state, filters }                     from './state.js';
+import { fmt, ymToDisplay }                   from './utils.js';
+import { EXPENSE_CATEGORIES, getCatColor }    from './constants.js';
+import { buildDonutSlices, buildDonutSVGCircles } from './charts.js';
 
 function getAvailableDashMonths() {
     if (!state.currentPlanner) return [];
@@ -46,22 +22,35 @@ function getPlannerExpenses() {
     );
 }
 
+// Shared donut HTML builder — circles from charts.js, wrapper assembled here
+function buildDonutHtml(slices, total, centerLabel, legendItemFn) {
+    return `
+        <div class="donut-wrap">
+            <div class="donut-svg-wrap">
+                <svg viewBox="0 0 200 200" width="160" height="160">
+                    ${buildDonutSVGCircles(slices)}
+                    <text x="100" y="93" text-anchor="middle" class="chart-center-label">${centerLabel}</text>
+                    <text x="100" y="113" text-anchor="middle" class="chart-center-amount">${fmt(total)}</text>
+                    <text x="100" y="128" text-anchor="middle" class="chart-center-unit">원</text>
+                </svg>
+            </div>
+            <div class="donut-legend">${slices.map(legendItemFn).join('')}</div>
+        </div>`;
+}
+
 function renderDashMonthNav() {
     const navEl = document.getElementById('dash-month-nav');
     if (!navEl) return;
-
     const months = getAvailableDashMonths();
     if (months.length === 0) { navEl.innerHTML = ''; return; }
-
-    if (!months.includes(dashMonth)) dashMonth = months[0];
-
+    if (!months.includes(filters.dashboard.month)) filters.dashboard.month = months[0];
     navEl.innerHTML = `
         <div class="dash-month-bar">
-            <span class="dash-month-label">${ymToDisplay(dashMonth)}</span>
+            <span class="dash-month-label">${ymToDisplay(filters.dashboard.month)}</span>
         </div>
         <div class="month-chips-row">${months.map(ym => {
             const [y, m] = ym.split('-');
-            return `<button class="month-chip${ym === dashMonth ? ' active' : ''}" onclick="setDashMonth('${ym}')">${y.slice(2)}.${m}</button>`;
+            return `<button class="month-chip${ym === filters.dashboard.month ? ' active' : ''}" onclick="setDashMonth('${ym}')">${y.slice(2)}.${m}</button>`;
         }).join('')}</div>`;
 }
 
@@ -70,61 +59,26 @@ function renderDashMonthNav() {
 function renderMonthlyDonut() {
     const container = document.getElementById('dash-donut');
     if (!container) return;
-
-    const expenses = getPlannerExpenses().filter(t => t.date?.startsWith(dashMonth));
-
+    const expenses = getPlannerExpenses().filter(t => t.date?.startsWith(filters.dashboard.month));
     if (expenses.length === 0) {
         container.innerHTML = '<div class="empty-state" style="padding:16px;">이 월의 지출 내역이 없습니다</div>';
         return;
     }
-
     const catTotals = {};
     expenses.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
-
     const total = Object.values(catTotals).reduce((s, v) => s + v, 0);
-    const cats = Object.entries(catTotals)
-        .map(([cat, amount]) => ({ cat, amount, pct: (amount / total) * 100, color: getCatColor(cat) }))
+    const items = Object.entries(catTotals)
+        .map(([cat, amount]) => ({ cat, amount, color: getCatColor(cat) }))
         .sort((a, b) => b.amount - a.amount);
-
-    const R = 70, CX = 100, CY = 100;
-    const circumference = 2 * Math.PI * R;
-    let cumOffset = 0;
-
-    const slices = cats.map(c => {
-        const dash = (c.amount / total) * circumference;
-        const dashOffset = circumference / 4 - cumOffset;
-        cumOffset += dash;
-        return { ...c, dash, dashOffset };
-    });
-
-    const svgSlices = slices.map(s => `
-        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none"
-            stroke="${s.color}" stroke-width="30"
-            stroke-dasharray="${s.dash.toFixed(2)} ${circumference.toFixed(2)}"
-            stroke-dashoffset="${s.dashOffset.toFixed(2)}" />`
-    ).join('');
-
-    const legendItems = slices.map(s => `
-        <div class="donut-legend-item cat-clickable" onclick="showCatTxModal('${s.cat}', '${dashMonth}')">
+    const slices = buildDonutSlices(items);
+    const month  = filters.dashboard.month;
+    container.innerHTML = buildDonutHtml(slices, total, '지출', s => `
+        <div class="donut-legend-item cat-clickable" onclick="showCatTxModal('${s.cat}', '${month}')">
             <span class="donut-legend-dot" style="background:${s.color}"></span>
             <span class="donut-legend-cat">${s.cat}</span>
-            <span class="donut-legend-pct">${s.pct.toFixed(1)}%</span>
+            <span class="donut-legend-pct">${((s.amount / total) * 100).toFixed(1)}%</span>
             <span class="donut-legend-amt">${fmt(s.amount)}원</span>
-        </div>`
-    ).join('');
-
-    container.innerHTML = `
-        <div class="donut-wrap">
-            <div class="donut-svg-wrap">
-                <svg viewBox="0 0 200 200" width="160" height="160">
-                    ${svgSlices}
-                    <text x="100" y="93" text-anchor="middle" class="chart-center-label">지출</text>
-                    <text x="100" y="113" text-anchor="middle" class="chart-center-amount">${fmt(total)}</text>
-                    <text x="100" y="128" text-anchor="middle" class="chart-center-unit">원</text>
-                </svg>
-            </div>
-            <div class="donut-legend">${legendItems}</div>
-        </div>`;
+        </div>`);
 }
 
 // ── Recent 5-month stacked bar chart ──
@@ -132,42 +86,30 @@ function renderMonthlyDonut() {
 function renderBar5() {
     const container = document.getElementById('dash-bar5');
     if (!container) return;
-
     const allExpenses = getPlannerExpenses();
-
     const monthSet = new Set(allExpenses.map(t => t.date?.slice(0, 7)).filter(Boolean));
     const months = [...monthSet].sort().slice(-5);
-
     if (months.length === 0) {
         container.innerHTML = '<div class="empty-state" style="padding:16px;">데이터가 없습니다</div>';
         return;
     }
-
-    // Per-month category totals
     const data = {};
     months.forEach(m => { data[m] = {}; });
     allExpenses.forEach(t => {
         const m = t.date?.slice(0, 7);
         if (data[m]) data[m][t.category] = (data[m][t.category] || 0) + t.amount;
     });
-
-    const totals = months.map(m => Object.values(data[m]).reduce((s, v) => s + v, 0));
+    const totals   = months.map(m => Object.values(data[m]).reduce((s, v) => s + v, 0));
     const maxTotal = Math.max(...totals, 1);
-
-    // Active categories in canonical order
-    const catSet = new Set();
+    const catSet   = new Set();
     months.forEach(m => Object.keys(data[m]).forEach(c => catSet.add(c)));
     const activeCats = EXPENSE_CATEGORIES.filter(c => catSet.has(c));
-
-    const BAR_MAX_H = 130;
-
+    const BAR_MAX_H  = 130;
     const barsHtml = months.map((m, i) => {
-        const total = totals[i];
-        const barH  = Math.round((total / maxTotal) * BAR_MAX_H);
-        const [y, mo] = m.split('-');
-        const isActive = m === dashMonth;
-
-        // Sort segments largest → bottom (column-reverse renders first child at bottom)
+        const total    = totals[i];
+        const barH     = Math.round((total / maxTotal) * BAR_MAX_H);
+        const [y, mo]  = m.split('-');
+        const isActive = m === filters.dashboard.month;
         const segsHtml = activeCats
             .filter(c => (data[m][c] || 0) > 0)
             .sort((a, b) => (data[m][b] || 0) - (data[m][a] || 0))
@@ -177,7 +119,6 @@ function renderBar5() {
                 const pct = total > 0 ? Math.round((amt / total) * 100) : 0;
                 return `<div class="bar5-seg" style="height:${h}px;background:${getCatColor(c)}" title="${c} ${fmt(amt)}원 (${pct}%)"></div>`;
             }).join('');
-
         return `
         <div class="bar5-col${isActive ? ' active' : ''}" onclick="setDashMonth('${m}')">
             <div class="bar5-amount">${total > 0 ? fmt(total) : '-'}</div>
@@ -186,18 +127,13 @@ function renderBar5() {
             <div class="bar5-month-lbl">${y.slice(2)}.${parseInt(mo)}월</div>
         </div>`;
     }).join('');
-
     const legendHtml = activeCats.map(c => `
         <div class="bar5-legend-item">
             <span class="bar5-legend-dot" style="background:${getCatColor(c)}"></span>
             <span>${c}</span>
-        </div>`
-    ).join('');
-
+        </div>`).join('');
     container.innerHTML = `
-        <div class="bar5-chart-wrap">
-            <div class="bar5-chart">${barsHtml}</div>
-        </div>
+        <div class="bar5-chart-wrap"><div class="bar5-chart">${barsHtml}</div></div>
         <div class="bar5-legend">${legendHtml}</div>`;
 }
 
@@ -206,36 +142,30 @@ function renderBar5() {
 function renderComparison() {
     const container = document.getElementById('dash-compare');
     if (!container) return;
-
     if (!state.currentPlanner) {
         container.innerHTML = '<div class="empty-state" style="padding:16px;">플래너를 선택해주세요</div>';
         return;
     }
-
-    const pid    = state.currentPlanner.id;
-    const monthTx = getPlannerExpenses().filter(t => t.date?.startsWith(dashMonth));
-
+    const pid     = state.currentPlanner.id;
+    const month   = filters.dashboard.month;
+    const monthTx = getPlannerExpenses().filter(t => t.date?.startsWith(month));
     const rows = EXPENSE_CATEGORIES.map(cat => {
         const planned = (state.budgets[`${pid}_${cat}`] || {}).amount || 0;
         const actual  = monthTx.filter(t => t.category === cat).reduce((s, t) => s + t.amount, 0);
         return { cat, planned, actual, diff: planned - actual };
     }).filter(r => r.planned > 0 || r.actual > 0);
-
     if (rows.length === 0) {
         container.innerHTML = '<div class="empty-state" style="padding:16px;">이 월의 데이터가 없습니다</div>';
         return;
     }
-
     const totalPlanned = rows.reduce((s, r) => s + r.planned, 0);
-    const totalActual  = rows.reduce((s, r) => s + r.actual, 0);
+    const totalActual  = rows.reduce((s, r) => s + r.actual,  0);
     const totalDiff    = totalPlanned - totalActual;
-
     const totalDiffHtml = totalPlanned > 0
         ? totalDiff >= 0
             ? `<span class="compare-diff-under">▼ ${fmt(totalDiff)}원 남음</span>`
             : `<span class="compare-diff-over">▲ ${fmt(Math.abs(totalDiff))}원 초과</span>`
         : '<span class="compare-diff-none">-</span>';
-
     const summaryHtml = `
         <div class="compare-summary">
             <div class="compare-summary-item">
@@ -251,38 +181,36 @@ function renderComparison() {
                 <span class="compare-summary-val">${totalDiffHtml}</span>
             </div>
         </div>`;
-
-    if (compareView === 'block') {
+    if (filters.dashboard.compareView === 'block') {
         const blocksHtml = rows.map(({ cat, planned, actual, diff }) => {
-            const pct  = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : 0;
-            const over = planned > 0 && actual > planned;
+            const pct       = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : 0;
+            const over      = planned > 0 && actual > planned;
             const statusCls = over ? 'cblock-over' : pct > 80 ? 'cblock-warn' : planned > 0 ? 'cblock-ok' : '';
-            let remainHtml;
-            if (planned === 0)  remainHtml = `<span class="cblock-unset">예산 미설정</span>`;
-            else if (over)      remainHtml = `<span class="cblock-over-text">▲ ${fmt(Math.abs(diff))}원 초과</span>`;
-            else                remainHtml = `<span class="cblock-remain-text">▼ ${fmt(diff)}원 남음</span>`;
-
+            const remainHtml = planned === 0
+                ? `<span class="cblock-unset">예산 미설정</span>`
+                : over
+                    ? `<span class="cblock-over-text">▲ ${fmt(Math.abs(diff))}원 초과</span>`
+                    : `<span class="cblock-remain-text">▼ ${fmt(diff)}원 남음</span>`;
             return `
-            <div class="compare-block ${statusCls} cat-clickable" onclick="showCatTxModal('${cat}', '${dashMonth}')">
+            <div class="compare-block ${statusCls} cat-clickable" onclick="showCatTxModal('${cat}', '${month}')">
                 <div class="cblock-name">${cat}</div>
                 <div class="cblock-bar-bg"><div class="cblock-bar${over ? ' over' : pct > 80 ? ' warn' : ''}" style="width:${pct}%"></div></div>
                 <div class="cblock-spent">${fmt(actual)}원 지출</div>
                 <div class="cblock-remain">${remainHtml}</div>
             </div>`;
         }).join('');
-
         container.innerHTML = summaryHtml + `<div class="compare-block-grid">${blocksHtml}</div>`;
     } else {
         const rowsHtml = rows.map(({ cat, planned, actual, diff }) => {
             const pct  = planned > 0 ? Math.min(100, Math.round((actual / planned) * 100)) : 0;
             const over = planned > 0 && actual > planned;
-            let diffHtml;
-            if (planned === 0)  diffHtml = `<span class="compare-diff-none">예산 미설정</span>`;
-            else if (over)      diffHtml = `<span class="compare-diff-over">▲ ${fmt(Math.abs(diff))}원 초과</span>`;
-            else                diffHtml = `<span class="compare-diff-under">▼ ${fmt(diff)}원 남음</span>`;
-
+            const diffHtml = planned === 0
+                ? `<span class="compare-diff-none">예산 미설정</span>`
+                : over
+                    ? `<span class="compare-diff-over">▲ ${fmt(Math.abs(diff))}원 초과</span>`
+                    : `<span class="compare-diff-under">▼ ${fmt(diff)}원 남음</span>`;
             return `
-            <div class="compare-row cat-clickable" onclick="showCatTxModal('${cat}', '${dashMonth}')">
+            <div class="compare-row cat-clickable" onclick="showCatTxModal('${cat}', '${month}')">
                 <div class="compare-row-top">
                     <span class="compare-cat">${cat}</span>
                     <span class="compare-diff">${diffHtml}</span>
@@ -295,19 +223,19 @@ function renderComparison() {
                 ${planned > 0 ? `<div class="compare-bar-bg"><div class="compare-bar${over ? ' over' : pct > 80 ? ' warn' : ''}" style="width:${pct}%"></div></div>` : ''}
             </div>`;
         }).join('');
-
         container.innerHTML = summaryHtml + `<div class="compare-list">${rowsHtml}</div>`;
     }
 }
 
-// ── Cat-chart filter ──
+// ── Category chart filter ──
 
 function getFilteredCatExpenses(plannerTx) {
+    const cf = filters.dashboard.catFilter;
     let expenses = plannerTx.filter(t => t.type === 'expense');
-    if (catFilter.mode === 'month' && catFilter.month) {
-        expenses = expenses.filter(t => t.date?.startsWith(catFilter.month));
-    } else if (catFilter.mode === 'period' && catFilter.from && catFilter.to) {
-        expenses = expenses.filter(t => t.date >= catFilter.from && t.date <= catFilter.to);
+    if (cf.mode === 'month' && cf.month) {
+        expenses = expenses.filter(t => t.date?.startsWith(cf.month));
+    } else if (cf.mode === 'period' && cf.from && cf.to) {
+        expenses = expenses.filter(t => t.date >= cf.from && t.date <= cf.to);
     }
     return expenses;
 }
@@ -315,31 +243,28 @@ function getFilteredCatExpenses(plannerTx) {
 function renderCatChartFilter(plannerTx) {
     const el = document.getElementById('cat-chart-filter');
     if (!el) return;
-
+    const cf = filters.dashboard.catFilter;
     const allMonths = [...new Set(
         plannerTx.map(t => t.date?.slice(0, 7)).filter(Boolean)
     )].sort().reverse();
-
     const modeBtn = (mode, label) =>
-        `<button class="cat-filter-mode-btn${catFilter.mode === mode ? ' active' : ''}" onclick="setCatFilterMode('${mode}')">${label}</button>`;
-
+        `<button class="cat-filter-mode-btn${cf.mode === mode ? ' active' : ''}" onclick="setCatFilterMode('${mode}')">${label}</button>`;
     let extraHtml = '';
-    if (catFilter.mode === 'month') {
+    if (cf.mode === 'month') {
         extraHtml = `<div class="month-chips-row" style="margin-top:8px;">${
             allMonths.map(ym => {
                 const [y, m] = ym.split('-');
-                return `<button class="month-chip${catFilter.month === ym ? ' active' : ''}" onclick="setCatFilterMonth('${ym}')">${y.slice(2)}.${m}</button>`;
+                return `<button class="month-chip${cf.month === ym ? ' active' : ''}" onclick="setCatFilterMonth('${ym}')">${y.slice(2)}.${m}</button>`;
             }).join('')
         }</div>`;
-    } else if (catFilter.mode === 'period') {
+    } else if (cf.mode === 'period') {
         extraHtml = `
         <div class="cat-filter-period-row">
-            <input type="date" id="cat-filter-from" class="cat-filter-date" value="${catFilter.from}" onchange="updateCatFilterPeriod()">
+            <input type="date" id="cat-filter-from" class="cat-filter-date" value="${cf.from}" onchange="updateCatFilterPeriod()">
             <span class="cat-filter-sep">~</span>
-            <input type="date" id="cat-filter-to"   class="cat-filter-date" value="${catFilter.to}"   onchange="updateCatFilterPeriod()">
+            <input type="date" id="cat-filter-to"   class="cat-filter-date" value="${cf.to}"   onchange="updateCatFilterPeriod()">
         </div>`;
     }
-
     el.innerHTML = `
         <div class="cat-filter-modes">
             ${modeBtn('all',    '전체')}
@@ -352,9 +277,9 @@ function renderCatChartFilter(plannerTx) {
 // ── Main render ──
 
 export function renderDashboard() {
-    const dashInc = document.getElementById('dash-income');
-    const dashExp = document.getElementById('dash-expense');
-    const dashBal = document.getElementById('dash-balance');
+    const dashInc       = document.getElementById('dash-income');
+    const dashExp       = document.getElementById('dash-expense');
+    const dashBal       = document.getElementById('dash-balance');
     const chartContainer = document.getElementById('cat-chart');
 
     if (!state.currentPlanner) {
@@ -371,7 +296,6 @@ export function renderDashboard() {
 
     const pid       = state.currentPlanner.id;
     const isDefault = state.currentPlanner.isDefault;
-
     const plannerTx = state.transactions.filter(t =>
         t.plannerId === pid || (!t.plannerId && isDefault)
     );
@@ -382,7 +306,6 @@ export function renderDashboard() {
 
     if (dashInc) dashInc.textContent = fmt(income) + '원';
     if (dashExp) dashExp.textContent = fmt(expense) + '원';
-
     if (dashBal) {
         if (balance > 0) {
             dashBal.textContent = '+' + fmt(balance) + '원';
@@ -406,49 +329,18 @@ export function renderDashboard() {
             const catTotals = {};
             expenses.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
             const total = expenses.reduce((s, t) => s + t.amount, 0);
-            const cats = Object.entries(catTotals)
-                .map(([cat, amount]) => ({ cat, amount, pct: (amount / total) * 100, color: getCatColor(cat) }))
+            const items = Object.entries(catTotals)
+                .map(([cat, amount]) => ({ cat, amount, color: getCatColor(cat) }))
                 .sort((a, b) => b.amount - a.amount);
-
-            const R = 70, CX = 100, CY = 100;
-            const circumference = 2 * Math.PI * R;
-            let cumOffset = 0;
-            const slices = cats.map(c => {
-                const dash = (c.amount / total) * circumference;
-                const dashOffset = circumference / 4 - cumOffset;
-                cumOffset += dash;
-                return { ...c, dash, dashOffset };
-            });
-
-            const svgSlices = slices.map(s => `
-                <circle cx="${CX}" cy="${CY}" r="${R}" fill="none"
-                    stroke="${s.color}" stroke-width="30"
-                    stroke-dasharray="${s.dash.toFixed(2)} ${circumference.toFixed(2)}"
-                    stroke-dashoffset="${s.dashOffset.toFixed(2)}" />`
-            ).join('');
-
-            const modalMonth = catFilter.mode === 'month' ? catFilter.month : '';
-            const legendItems = slices.map(s => `
+            const slices     = buildDonutSlices(items);
+            const modalMonth = filters.dashboard.catFilter.mode === 'month' ? filters.dashboard.catFilter.month : '';
+            chartContainer.innerHTML = buildDonutHtml(slices, total, '지출', s => `
                 <div class="donut-legend-item cat-clickable" onclick="showCatTxModal('${s.cat}', '${modalMonth}')">
                     <span class="donut-legend-dot" style="background:${s.color}"></span>
                     <span class="donut-legend-cat">${s.cat}</span>
-                    <span class="donut-legend-pct">${s.pct.toFixed(1)}%</span>
+                    <span class="donut-legend-pct">${((s.amount / total) * 100).toFixed(1)}%</span>
                     <span class="donut-legend-amt">${fmt(s.amount)}원</span>
-                </div>`
-            ).join('');
-
-            chartContainer.innerHTML = `
-                <div class="donut-wrap">
-                    <div class="donut-svg-wrap">
-                        <svg viewBox="0 0 200 200" width="160" height="160">
-                            ${svgSlices}
-                            <text x="100" y="93" text-anchor="middle" class="chart-center-label">지출</text>
-                            <text x="100" y="113" text-anchor="middle" class="chart-center-amount">${fmt(total)}</text>
-                            <text x="100" y="128" text-anchor="middle" class="chart-center-unit">원</text>
-                        </svg>
-                    </div>
-                    <div class="donut-legend">${legendItems}</div>
-                </div>`;
+                </div>`);
         }
     }
 
@@ -458,45 +350,32 @@ export function renderDashboard() {
     renderComparison();
 }
 
-window.setDashMonth = (ym) => {
-    dashMonth = ym;
-    renderDashMonthNav();
-    renderMonthlyDonut();
-    renderBar5();
-    renderComparison();
-};
-
 // ── Category transaction modal ──
 
 window.showCatTxModal = (cat, month) => {
     if (!state.currentPlanner) return;
-    const pid = state.currentPlanner.id;
+    const pid       = state.currentPlanner.id;
     const isDefault = state.currentPlanner.isDefault;
-
     let txList = state.transactions.filter(t =>
         (t.plannerId === pid || (!t.plannerId && isDefault)) &&
-        t.type === 'expense' &&
-        t.category === cat
+        t.type === 'expense' && t.category === cat
     );
     if (month) txList = txList.filter(t => t.date?.startsWith(month));
     txList = txList.sort((a, b) => b.date?.localeCompare(a.date));
-
     const total = txList.reduce((s, t) => s + t.amount, 0);
 
-    const titleEl = document.getElementById('cat-tx-modal-title');
+    const titleEl   = document.getElementById('cat-tx-modal-title');
     const summaryEl = document.getElementById('cat-tx-summary');
-    const listEl = document.getElementById('cat-tx-list');
+    const listEl    = document.getElementById('cat-tx-list');
 
     if (titleEl) {
         titleEl.textContent = month
             ? `${cat} · ${month.slice(0, 4)}년 ${parseInt(month.slice(5))}월`
             : `${cat} · 전체`;
     }
-
     if (summaryEl) {
         summaryEl.innerHTML = `<span class="cat-tx-total-label">합계</span><span class="cat-tx-total-val">${fmt(total)}원</span>`;
     }
-
     if (listEl) {
         if (txList.length === 0) {
             listEl.innerHTML = '<div class="empty-state" style="padding:20px;">내역이 없습니다</div>';
@@ -519,7 +398,6 @@ window.showCatTxModal = (cat, month) => {
             }).join('');
         }
     }
-
     document.getElementById('cat-tx-modal')?.classList.add('open');
 };
 
@@ -527,27 +405,35 @@ window.closeCatTxModal = () => {
     document.getElementById('cat-tx-modal')?.classList.remove('open');
 };
 
+window.setDashMonth = (ym) => {
+    filters.dashboard.month = ym;
+    renderDashMonthNav();
+    renderMonthlyDonut();
+    renderBar5();
+    renderComparison();
+};
+
 window.setCompareView = (view) => {
-    compareView = view;
+    filters.dashboard.compareView = view;
     document.getElementById('btn-compare-row-view')?.classList.toggle('active', view === 'row');
     document.getElementById('btn-compare-block-view')?.classList.toggle('active', view === 'block');
     renderComparison();
 };
 
 window.setCatFilterMode = (mode) => {
-    catFilter = { mode, month: '', from: '', to: '' };
+    filters.dashboard.catFilter = { mode, month: '', from: '', to: '' };
     renderDashboard();
 };
 
 window.setCatFilterMonth = (ym) => {
-    catFilter = { mode: 'month', month: ym, from: '', to: '' };
+    filters.dashboard.catFilter = { mode: 'month', month: ym, from: '', to: '' };
     renderDashboard();
 };
 
 window.updateCatFilterPeriod = () => {
     const from = document.getElementById('cat-filter-from')?.value || '';
     const to   = document.getElementById('cat-filter-to')?.value   || '';
-    catFilter.from = from;
-    catFilter.to   = to;
+    filters.dashboard.catFilter.from = from;
+    filters.dashboard.catFilter.to   = to;
     renderDashboard();
 };
