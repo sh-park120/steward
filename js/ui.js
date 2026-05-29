@@ -1,5 +1,49 @@
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from './constants.js';
 
+let modalTags = [];
+
+function renderModalTagChips() {
+    const container = document.getElementById('modal-tag-chips');
+    if (!container) return;
+    container.innerHTML = modalTags.map((tag, i) =>
+        `<span class="tag-chip-modal">${tag}<span class="tag-chip-modal-remove" onclick="removeModalTag(${i})">✕</span></span>`
+    ).join('');
+}
+
+window.getModalTags = () => [...modalTags];
+
+window.handleTagInput = (e) => {
+    const input = document.getElementById('tag-text-input');
+    if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const val = input.value.replace(/,/g, '').trim();
+        if (val && !modalTags.includes(val)) {
+            modalTags.push(val);
+            renderModalTagChips();
+        }
+        input.value = '';
+    } else if (e.key === 'Backspace' && input.value === '' && modalTags.length > 0) {
+        modalTags.pop();
+        renderModalTagChips();
+    }
+};
+
+window.commitTagInput = () => {
+    const input = document.getElementById('tag-text-input');
+    if (!input) return;
+    const val = input.value.trim();
+    if (val && !modalTags.includes(val)) {
+        modalTags.push(val);
+        renderModalTagChips();
+    }
+    input.value = '';
+};
+
+window.removeModalTag = (index) => {
+    modalTags.splice(index, 1);
+    renderModalTagChips();
+};
+
 export function showScreen(name) {
     ['login', 'profile', 'app'].forEach(s => {
         const el = document.getElementById(`screen-${s}`);
@@ -17,6 +61,8 @@ window.openAddModal = () => {
     document.getElementById('tx-amount').value = '';
     document.getElementById('tx-desc').value   = '';
     document.getElementById('tx-date').value   = new Date().toISOString().slice(0, 10);
+    modalTags = [];
+    renderModalTagChips();
     window.setTxType('income');
     if (window.updateCatOptions) window.updateCatOptions();
 };
@@ -43,6 +89,8 @@ window.openEditModal = (tx) => {
     document.getElementById('tx-amount').value = tx.amount.toLocaleString();
     document.getElementById('tx-desc').value   = tx.description || '';
     document.getElementById('tx-date').value   = tx.date;
+    modalTags = [...(tx.tags || [])];
+    renderModalTagChips();
 };
 
 window.setTxType = (type) => {

@@ -371,6 +371,57 @@ body {
 }
 .tx-edit:hover { background: rgba(96,165,250,0.12); color: var(--accent2); }
 
+/* TX TAGS */
+.tx-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.tx-tag-chip {
+  display: inline-block; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 1px 7px; font-size: 10px; color: var(--muted);
+  cursor: pointer; transition: border-color 0.15s, color 0.15s;
+}
+.tx-tag-chip:hover { border-color: var(--accent); color: var(--accent2); }
+
+/* TAG FILTER BAR */
+.tag-filter-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 12px;
+}
+.tag-filter-chip {
+  padding: 4px 12px; border-radius: 20px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  color: var(--muted); cursor: pointer; font-size: 12px;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.tag-filter-chip:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+.tag-filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+/* MODAL TAG INPUT */
+.tag-input-wrap {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  background: var(--surface2); padding: 6px 8px;
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  min-height: 38px; cursor: text; transition: border-color 0.15s;
+}
+.tag-input-wrap:focus-within { border-color: var(--accent); }
+#modal-tag-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag-chip-modal {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--accent); color: #fff; border-radius: 6px;
+  padding: 2px 8px; font-size: 12px;
+}
+.tag-chip-modal-remove {
+  cursor: pointer; opacity: 0.75; font-size: 10px; line-height: 1;
+}
+.tag-chip-modal-remove:hover { opacity: 1; }
+.tag-text-input {
+  background: transparent; border: none; outline: none;
+  color: var(--text); font-size: 13px;
+  font-family: 'Noto Sans KR', sans-serif;
+  flex: 1; min-width: 80px;
+}
+.tag-text-input::placeholder { color: var(--muted); }
+
 /* CATEGORY BLOCK VIEW */
 .cat-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;

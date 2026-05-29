@@ -112,6 +112,7 @@
                         <option value="expense">지출만</option>
                     </select>
                 </div>
+                <div id="tag-filter-row" class="tag-filter-row"></div>
                 <div class="summary-strip">
                     <div class="strip-card income-card"><div class="strip-label">수입</div><div class="strip-amount" id="ledger-income">0</div></div>
                     <div class="strip-card expense-card"><div class="strip-label">지출</div><div class="strip-amount" id="ledger-expense">0</div></div>
@@ -292,6 +293,16 @@
             <div class="form-row">
                 <label class="form-label">메모</label>
                 <input class="form-input" id="tx-desc" type="text" placeholder="간단 메모">
+            </div>
+            <div class="form-row">
+                <label class="form-label">태그</label>
+                <div class="tag-input-wrap" id="tag-input-wrap" onclick="document.getElementById('tag-text-input').focus()">
+                    <div id="modal-tag-chips"></div>
+                    <input class="tag-text-input" id="tag-text-input"
+                           placeholder="태그 입력 후 Enter"
+                           onkeydown="handleTagInput(event)"
+                           onblur="commitTagInput()">
+                </div>
             </div>
             <div class="form-row">
                 <label class="form-label">날짜</label>

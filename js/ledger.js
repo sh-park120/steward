@@ -13,6 +13,8 @@ let currentMonthFilter = (() => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 })();
 
+let currentTagFilters = new Set();
+
 function todayYM() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -68,6 +70,22 @@ function renderMonthNav() {
         ${chipsHtml}`;
 }
 
+function renderTagFilter(allTags) {
+    const el = document.getElementById('tag-filter-row');
+    if (!el) return;
+    if (allTags.length === 0) {
+        el.innerHTML = '';
+        return;
+    }
+    const isAll = currentTagFilters.size === 0;
+    el.innerHTML =
+        `<button class="tag-filter-chip${isAll ? ' active' : ''}" onclick="setTagFilter(null)">전체</button>` +
+        allTags.map(tag => {
+            const active = currentTagFilters.has(tag);
+            const escaped = tag.replace(/'/g, "\\'");
+            return `<button class="tag-filter-chip${active ? ' active' : ''}" onclick="setTagFilter('${escaped}')">${tag}</button>`;
+        }).join('');
+}
 
 export function renderLedger() {
     renderMonthNav();
@@ -89,6 +107,13 @@ export function renderLedger() {
 
     const filterType = document.getElementById('filter-type')?.value || 'all';
     if (filterType !== 'all') txList = txList.filter(t => t.type === filterType);
+
+    const allTags = [...new Set(txList.flatMap(t => t.tags || []))].sort();
+    renderTagFilter(allTags);
+
+    if (currentTagFilters.size > 0) {
+        txList = txList.filter(t => (t.tags || []).some(tag => currentTagFilters.has(tag)));
+    }
 
     const income  = txList.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = txList.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -137,16 +162,25 @@ function renderRowView(container, txList) {
 
     const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
     container.innerHTML = dates.map(date => {
-        const items = grouped[date].map(t => `
+        const items = grouped[date].map(t => {
+            const tagsHtml = (t.tags && t.tags.length > 0)
+                ? `<div class="tx-tags">${t.tags.map(tag => {
+                    const escaped = tag.replace(/'/g, "\\'");
+                    return `<span class="tx-tag-chip" onclick="setTagFilter('${escaped}')" data-tag="${tag}">${tag}</span>`;
+                  }).join('')}</div>`
+                : '';
+            return `
             <div class="tx-item">
                 <div class="tx-info">
                     <span class="tx-cat">${t.category}</span>
                     <span class="tx-desc-text">${t.description || ''}</span>
+                    ${tagsHtml}
                 </div>
                 <span class="tx-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${fmt(t.amount)}원</span>
                 <button class="tx-edit" onclick="openEditTx('${t.id}')">✏</button>
                 <button class="tx-del" onclick="deleteTx('${t.id}')">✕</button>
-            </div>`).join('');
+            </div>`;
+        }).join('');
         return `<div class="day-group"><div class="day-header">${date}</div>${items}</div>`;
     }).join('');
 }
@@ -178,5 +212,15 @@ function renderBlockView(container, txList) {
 window.renderLedger = renderLedger;
 window.setMonthFilter = (ym) => {
     currentMonthFilter = ym;
+    renderLedger();
+};
+window.setTagFilter = (tag) => {
+    if (tag === null) {
+        currentTagFilters.clear();
+    } else if (currentTagFilters.has(tag)) {
+        currentTagFilters.delete(tag);
+    } else {
+        currentTagFilters.add(tag);
+    }
     renderLedger();
 };
