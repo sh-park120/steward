@@ -65,11 +65,15 @@ window.switchPlanner = (plannerId) => {
     const planner = state.planners.find(p => p.id === plannerId);
     if (!planner) return;
     state.currentPlanner = planner;
-    // Remember selection for this profile session
     if (state.currentProfile) {
         sessionStorage.setItem(`planner_${state.currentProfile.id}`, plannerId);
     }
-    if (window.refreshAll) window.refreshAll();
+    // Re-subscribe so Firestore only streams this planner's transactions
+    if (window.subscribeToPlanner && state.currentProfile) {
+        window.subscribeToPlanner(state.currentProfile.id, planner);
+    } else if (window.refreshAll) {
+        window.refreshAll();
+    }
 };
 
 window.openNewPlannerModal = () => {

@@ -22,6 +22,23 @@ loadSettings();
 let _unsubTx      = null;
 let _unsubBudgets = null;
 
+function subscribeToPlanner(profileId, planner) {
+    if (_unsubTx) { _unsubTx(); _unsubTx = null; }
+
+    // Default planner: include all profile transactions (covers legacy docs without plannerId).
+    // Non-default planner: filter by plannerId so only that planner's logs are loaded.
+    const q = planner.isDefault
+        ? query(collection(db, 'transactions'), where('profileId', '==', profileId), orderBy('date', 'desc'))
+        : query(collection(db, 'transactions'), where('profileId', '==', profileId), where('plannerId', '==', planner.id));
+
+    _unsubTx = onSnapshot(q, snap => {
+        state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        refreshAll();
+    });
+}
+
+window.subscribeToPlanner = subscribeToPlanner;
+
 function refreshAll() {
     const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'ledger';
     if (activeTab === 'ledger')    renderLedger();
@@ -59,17 +76,7 @@ window.initAppData = async () => {
     // render already has state.currentPlanner set
     await ensureDefaultPlanner(pid);
 
-    _unsubTx = onSnapshot(
-        query(
-            collection(db, 'transactions'),
-            where('profileId', '==', pid),
-            orderBy('date', 'desc')
-        ),
-        snap => {
-            state.transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            refreshAll();
-        }
-    );
+    subscribeToPlanner(pid, state.currentPlanner);
 
     _unsubBudgets = onSnapshot(
         query(collection(db, 'budgets'), where('profileId', '==', pid)),
