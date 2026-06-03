@@ -1,6 +1,6 @@
 import { db } from './firebase.js';
-import { state } from './state.js';
-import { fmt, parseAmount, showToast } from './utils.js';
+import { state, filters } from './state.js';
+import { fmt, parseAmount, showToast, todayYM, shiftMonth, ymToDisplay } from './utils.js';
 import { EXPENSE_CATEGORIES, getCatColor } from './constants.js';
 import { buildDonutSlices, buildDonutSVGCircles } from './charts.js';
 import {
@@ -9,6 +9,45 @@ import {
 
 let expandedCats = {};
 let budgetView   = 'row';
+
+function getAvailableBudgetMonths() {
+    if (!state.currentPlanner) return [];
+    const pid = state.currentPlanner.id;
+    const plannerTx = state.transactions.filter(t =>
+        t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
+    );
+    const monthSet = new Set(plannerTx.map(t => t.date?.slice(0, 7)).filter(Boolean));
+    return [...monthSet].sort().reverse();
+}
+
+function renderBudgetMonthNav() {
+    const navEl = document.getElementById('budget-month-nav');
+    if (!navEl) return;
+
+    const availableMonths = getAvailableBudgetMonths();
+    const ym    = filters.budget.month;
+    const isAll = ym === '';
+    const today = todayYM();
+    const prevYM  = isAll ? today : shiftMonth(ym, -1);
+    const nextYM  = isAll ? '' : shiftMonth(ym, 1);
+    const canNext = !isAll && nextYM <= today;
+
+    const chipsHtml = availableMonths.length > 0
+        ? `<div class="month-chips-row">${availableMonths.map(m => {
+              const [y, mo] = m.split('-');
+              return `<button class="month-chip${m === ym ? ' active' : ''}" onclick="setBudgetMonth('${m}')">${y.slice(2)}.${mo}</button>`;
+          }).join('')}</div>`
+        : '';
+
+    navEl.innerHTML = `
+        <div class="month-nav-row">
+            <button class="month-all-btn${isAll ? ' active' : ''}" onclick="setBudgetMonth('')">전체</button>
+            <button class="month-arrow" onclick="setBudgetMonth('${prevYM}')"${isAll ? ' disabled' : ''}>&#9664;</button>
+            <span class="month-nav-label">${isAll ? '전체 기간' : ymToDisplay(ym)}</span>
+            <button class="month-arrow" onclick="setBudgetMonth('${nextYM}')"${!canNext ? ' disabled' : ''}>&#9654;</button>
+        </div>
+        ${chipsHtml}`;
+}
 
 function renderBudgetChart(catData) {
     const container = document.getElementById('budget-chart');
@@ -58,6 +97,8 @@ window.toggleCat = (cat, event) => {
 };
 
 export function renderBudget() {
+    renderBudgetMonthNav();
+
     const container = document.getElementById('budget-list');
     if (!container) return;
 
@@ -66,10 +107,13 @@ export function renderBudget() {
         return;
     }
 
-    const pid       = state.currentPlanner.id;
-    const plannerTx = state.transactions.filter(t =>
+    const pid = state.currentPlanner.id;
+    let plannerTx = state.transactions.filter(t =>
         t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
     );
+
+    const ym = filters.budget.month;
+    if (ym) plannerTx = plannerTx.filter(t => t.date?.startsWith(ym));
 
     const catData = EXPENSE_CATEGORIES.map(cat => {
         const key           = `${pid}_${cat}`;
@@ -271,3 +315,5 @@ window.deleteSubBudget = async (cat, subName) => {
         showToast('삭제에 실패했습니다', 'error');
     }
 };
+
+window.setBudgetMonth = (ym) => { filters.budget.month = ym; renderBudget(); };

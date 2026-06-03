@@ -20,6 +20,9 @@ export const filters = {
         month: todayYM(),
         tags:  new Set()
     },
+    budget: {
+        month: todayYM()
+    },
     dashboard: {
         month:       todayYM(),
         compareView: 'row',
