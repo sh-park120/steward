@@ -154,10 +154,15 @@ window.deletePlanner = async () => {
     if (!confirm(`'${planner.name}' 플래너를 삭제하시겠습니까?\n(해당 플래너의 기록과 예산 데이터가 모두 삭제됩니다)`)) return;
 
     try {
-        // Delete the planner's transactions and budgets along with the planner itself
+        // Delete the planner's transactions and budgets along with the planner itself.
+        // profileId filter is required: security rules scope reads by profile membership,
+        // so a query without it is rejected as permission-denied.
+        const pid = state.currentProfile.id;
         const [txSnap, budgetSnap] = await Promise.all([
-            getDocs(query(collection(db, 'transactions'), where('plannerId', '==', planner.id))),
-            getDocs(query(collection(db, 'budgets'), where('plannerId', '==', planner.id)))
+            getDocs(query(collection(db, 'transactions'),
+                where('profileId', '==', pid), where('plannerId', '==', planner.id))),
+            getDocs(query(collection(db, 'budgets'),
+                where('profileId', '==', pid), where('plannerId', '==', planner.id)))
         ]);
         const refs = [
             ...txSnap.docs.map(d => d.ref),
