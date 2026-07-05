@@ -1,48 +1,42 @@
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from './constants.js';
+import { getAllTags } from './tags.js';
 
 let modalTags = [];
 
-function renderModalTagChips() {
-    const container = document.getElementById('modal-tag-chips');
+// Snapshot of the chips as last rendered, so index-based toggles stay in sync
+let tagSelectList = [];
+
+// Tags are toggled from the managed list (see tags.js) instead of typed
+window.renderModalTagSelect = () => {
+    const container = document.getElementById('modal-tag-select');
     if (!container) return;
-    container.innerHTML = modalTags.map((tag, i) =>
-        `<span class="tag-chip-modal">${tag}<span class="tag-chip-modal-remove" onclick="removeModalTag(${i})">✕</span></span>`
-    ).join('');
-}
+    // Include already-selected tags even if they left the managed list
+    tagSelectList = [...new Set([...getAllTags(), ...modalTags])];
+    container.innerHTML =
+        tagSelectList.map((tag, i) =>
+            `<button type="button" class="tag-filter-chip${modalTags.includes(tag) ? ' active' : ''}"
+                     onclick="toggleModalTag(${i})">${tag}</button>`
+        ).join('') +
+        `<button type="button" class="tag-filter-chip tag-manage-open" onclick="openTagManageModal()">⚙️ 태그 관리</button>`;
+};
+
+window.toggleModalTag = (index) => {
+    const tag = tagSelectList[index];
+    if (!tag) return;
+    modalTags = modalTags.includes(tag)
+        ? modalTags.filter(t => t !== tag)
+        : [...modalTags, tag];
+    window.renderModalTagSelect();
+};
+
+// Called from tags.js after a rename (newName) or delete (newName = null)
+window.replaceModalTag = (oldName, newName) => {
+    modalTags = modalTags.filter(t => t !== oldName);
+    if (newName && !modalTags.includes(newName)) modalTags.push(newName);
+    window.renderModalTagSelect();
+};
 
 window.getModalTags = () => [...modalTags];
-
-window.handleTagInput = (e) => {
-    const input = document.getElementById('tag-text-input');
-    if (e.key === 'Enter' || e.key === ',') {
-        e.preventDefault();
-        const val = input.value.replace(/,/g, '').trim();
-        if (val && !modalTags.includes(val)) {
-            modalTags.push(val);
-            renderModalTagChips();
-        }
-        input.value = '';
-    } else if (e.key === 'Backspace' && input.value === '' && modalTags.length > 0) {
-        modalTags.pop();
-        renderModalTagChips();
-    }
-};
-
-window.commitTagInput = () => {
-    const input = document.getElementById('tag-text-input');
-    if (!input) return;
-    const val = input.value.trim();
-    if (val && !modalTags.includes(val)) {
-        modalTags.push(val);
-        renderModalTagChips();
-    }
-    input.value = '';
-};
-
-window.removeModalTag = (index) => {
-    modalTags.splice(index, 1);
-    renderModalTagChips();
-};
 
 export function showScreen(name) {
     ['login', 'profile', 'app'].forEach(s => {
@@ -62,7 +56,7 @@ window.openAddModal = () => {
     document.getElementById('tx-desc').value   = '';
     document.getElementById('tx-date').value   = new Date().toISOString().slice(0, 10);
     modalTags = [];
-    renderModalTagChips();
+    window.renderModalTagSelect();
     window.setTxType('expense');
     if (window.updateCatOptions) window.updateCatOptions();
 };
@@ -90,7 +84,7 @@ window.openEditModal = (tx) => {
     document.getElementById('tx-desc').value   = tx.description || '';
     document.getElementById('tx-date').value   = tx.date;
     modalTags = [...(tx.tags || [])];
-    renderModalTagChips();
+    window.renderModalTagSelect();
 };
 
 window.setTxType = (type) => {

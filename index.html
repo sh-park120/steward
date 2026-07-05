@@ -320,15 +320,25 @@
             </div>
             <div class="form-row">
                 <label class="form-label">태그</label>
-                <div class="tag-input-wrap" id="tag-input-wrap" onclick="document.getElementById('tag-text-input').focus()">
-                    <div id="modal-tag-chips"></div>
-                    <input class="tag-text-input" id="tag-text-input"
-                           placeholder="태그 입력 후 Enter"
-                           onkeydown="handleTagInput(event)"
-                           onblur="commitTagInput()">
-                </div>
+                <div class="modal-tag-select" id="modal-tag-select"></div>
             </div>
             <button class="btn-submit" onclick="addTransaction()">기록하기</button>
+        </div>
+    </div>
+
+    <!-- ── TAG MANAGE MODAL ── -->
+    <div class="modal-overlay" id="tag-manage-modal" onclick="if(event.target===this)closeModal('tag-manage-modal')">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">태그 관리</div>
+                <button class="modal-close" onclick="closeModal('tag-manage-modal')">✕</button>
+            </div>
+            <div class="tag-create-row">
+                <input class="form-input" id="new-tag-input" placeholder="새 태그 이름" maxlength="15"
+                       onkeydown="if(event.key==='Enter')createTag()">
+                <button class="btn-submit tag-create-btn" onclick="createTag()">추가</button>
+            </div>
+            <div id="tag-manage-list"></div>
         </div>
     </div>
 

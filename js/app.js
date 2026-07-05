@@ -7,6 +7,7 @@ import './friends.js';
 import './auth.js';
 import './profile.js';
 import './record.js';
+import './tags.js';
 import { renderLedger } from './ledger.js';
 import { renderBudget } from './budget.js';
 import { renderDashboard } from './dashboard.js';
