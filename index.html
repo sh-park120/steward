@@ -99,6 +99,7 @@
         <div class="planner-strip" id="planner-strip" style="display:none">
             <select class="planner-select" id="planner-select" onchange="switchPlanner(this.value)"></select>
             <button class="new-planner-btn" onclick="openNewPlannerModal()">＋ 새 플래너</button>
+            <button class="new-planner-btn" onclick="openManagePlannerModal()" title="플래너 관리">⚙️</button>
         </div>
 
         <div class="panels">
@@ -203,6 +204,24 @@
                        onkeydown="if(event.key==='Enter')createPlanner()">
             </div>
             <button class="btn-submit" onclick="createPlanner()">만들기</button>
+        </div>
+    </div>
+
+    <!-- ── MANAGE PLANNER MODAL ── -->
+    <div class="modal-overlay" id="manage-planner-modal" onclick="if(event.target===this)closeModal('manage-planner-modal')">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">플래너 관리</div>
+                <button class="modal-close" onclick="closeModal('manage-planner-modal')">✕</button>
+            </div>
+            <div class="form-row">
+                <label class="form-label">플래너 이름</label>
+                <input class="form-input" id="planner-rename-input"
+                       placeholder="플래너 이름" maxlength="20"
+                       onkeydown="if(event.key==='Enter')renamePlanner()">
+            </div>
+            <button class="btn-submit" onclick="renamePlanner()">이름 변경</button>
+            <button class="btn-danger" id="planner-delete-btn" onclick="deletePlanner()">플래너 삭제</button>
         </div>
     </div>
 

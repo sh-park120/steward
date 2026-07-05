@@ -2,7 +2,7 @@ import { db } from './firebase.js';
 import { state } from './state.js';
 import { showToast } from './utils.js';
 import {
-    collection, doc, addDoc, getDocs, deleteDoc,
+    collection, doc, addDoc, getDocs, updateDoc, writeBatch,
     query, where, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -114,22 +114,71 @@ window.createPlanner = async () => {
     }
 };
 
-window.deletePlanner = async (plannerId, event) => {
-    event?.stopPropagation();
-    const planner = state.planners.find(p => p.id === plannerId);
+window.openManagePlannerModal = () => {
+    const planner = state.currentPlanner;
     if (!planner) return;
-    if (planner.isDefault) { showToast('기본 플래너는 삭제할 수 없습니다.', 'warn'); return; }
-    if (!confirm(`'${planner.name}' 플래너를 삭제하시겠습니까?\n(해당 플래너의 예산 데이터가 삭제됩니다)`)) return;
+    const input = document.getElementById('planner-rename-input');
+    input.value = planner.name;
+    // Default planner can be renamed but not deleted
+    document.getElementById('planner-delete-btn').style.display = planner.isDefault ? 'none' : '';
+    document.getElementById('manage-planner-modal').classList.add('open');
+    setTimeout(() => input.focus(), 100);
+};
+
+window.renamePlanner = async () => {
+    const planner = state.currentPlanner;
+    if (!planner) return;
+    const name = document.getElementById('planner-rename-input').value.trim();
+    if (!name) { showToast('플래너 이름을 입력해주세요', 'warn'); return; }
+    if (name === planner.name) {
+        if (window.closeModal) window.closeModal('manage-planner-modal');
+        return;
+    }
 
     try {
-        await deleteDoc(doc(db, 'budgetPlanners', plannerId));
-        state.planners = state.planners.filter(p => p.id !== plannerId);
-
-        // Fall back to default planner
-        state.currentPlanner = state.planners.find(p => p.isDefault) || state.planners[0];
+        await updateDoc(doc(db, 'budgetPlanners', planner.id), { name });
+        planner.name = name;
         renderPlannerStrip();
+        if (window.closeModal) window.closeModal('manage-planner-modal');
+        showToast('플래너 이름이 변경되었습니다!');
+    } catch (e) {
+        console.error(e);
+        showToast('이름 변경 실패', 'error');
+    }
+};
+
+window.deletePlanner = async () => {
+    const planner = state.currentPlanner;
+    if (!planner) return;
+    if (planner.isDefault) { showToast('기본 플래너는 삭제할 수 없습니다.', 'warn'); return; }
+    if (!confirm(`'${planner.name}' 플래너를 삭제하시겠습니까?\n(해당 플래너의 기록과 예산 데이터가 모두 삭제됩니다)`)) return;
+
+    try {
+        // Delete the planner's transactions and budgets along with the planner itself
+        const [txSnap, budgetSnap] = await Promise.all([
+            getDocs(query(collection(db, 'transactions'), where('plannerId', '==', planner.id))),
+            getDocs(query(collection(db, 'budgets'), where('plannerId', '==', planner.id)))
+        ]);
+        const refs = [
+            ...txSnap.docs.map(d => d.ref),
+            ...budgetSnap.docs.map(d => d.ref),
+            doc(db, 'budgetPlanners', planner.id)
+        ];
+        // Firestore caps a batch at 500 writes
+        for (let i = 0; i < refs.length; i += 500) {
+            const batch = writeBatch(db);
+            refs.slice(i, i + 500).forEach(r => batch.delete(r));
+            await batch.commit();
+        }
+
+        state.planners = state.planners.filter(p => p.id !== planner.id);
+        if (window.closeModal) window.closeModal('manage-planner-modal');
         showToast('플래너가 삭제되었습니다.', 'warn');
-        if (window.refreshAll) window.refreshAll();
+
+        // Fall back to default planner (re-subscribes to its transactions)
+        const fallback = state.planners.find(p => p.isDefault) || state.planners[0];
+        if (fallback) window.switchPlanner(fallback.id);
+        renderPlannerStrip();
     } catch (e) {
         console.error(e);
         showToast('삭제 실패', 'error');
