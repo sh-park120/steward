@@ -293,10 +293,14 @@
                 <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
             </div>
             <div class="type-row">
-                <button class="type-btn active" data-type="income"  onclick="setTxType('income')">＋ 수입</button>
-                <button class="type-btn"        data-type="expense" onclick="setTxType('expense')">－ 지출</button>
+                <button class="type-btn"        data-type="income"  onclick="setTxType('income')">＋ 수입</button>
+                <button class="type-btn active" data-type="expense" onclick="setTxType('expense')">－ 지출</button>
             </div>
-<div class="form-row">
+            <div class="form-row">
+                <label class="form-label">날짜</label>
+                <input class="form-input" id="tx-date" type="date">
+            </div>
+            <div class="form-row">
                 <label class="form-label">금액</label>
                 <input class="form-input" id="tx-amount" type="text" oninput="this.value=fmtInput(this.value)" inputmode="numeric">
             </div>
@@ -323,10 +327,6 @@
                            onkeydown="handleTagInput(event)"
                            onblur="commitTagInput()">
                 </div>
-            </div>
-            <div class="form-row">
-                <label class="form-label">날짜</label>
-                <input class="form-input" id="tx-date" type="date">
             </div>
             <button class="btn-submit" onclick="addTransaction()">기록하기</button>
         </div>

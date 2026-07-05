@@ -63,7 +63,7 @@ window.openAddModal = () => {
     document.getElementById('tx-date').value   = new Date().toISOString().slice(0, 10);
     modalTags = [];
     renderModalTagChips();
-    window.setTxType('income');
+    window.setTxType('expense');
     if (window.updateCatOptions) window.updateCatOptions();
 };
 
