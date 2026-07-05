@@ -94,11 +94,78 @@ async function loadXlsx() {
     return _xlsx;
 }
 
+// ── Export selection ──
+
+// Snapshot of the planner's logs while the modal is open; `selected` marks
+// which of them will be included in the export
+let exportList = [];
+let selected   = new Set();
+
+function updateExportCount() {
+    const el = document.getElementById('export-count');
+    if (el) el.textContent = `${selected.size} / ${exportList.length}건 선택됨`;
+}
+
+function renderExportList() {
+    const el = document.getElementById('export-tx-list');
+    if (!el) return;
+    el.innerHTML = exportList.length
+        ? exportList.map((t, i) => `
+            <label class="export-tx-row">
+                <input type="checkbox" ${selected.has(i) ? 'checked' : ''} onchange="toggleExportTx(${i}, this.checked)">
+                <span class="export-tx-date">${(t.date || '').slice(5)}</span>
+                <span class="export-tx-cat">${t.category || ''}</span>
+                <span class="export-tx-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${(t.amount || 0).toLocaleString()}</span>
+                <span class="export-tx-desc">${t.description || ''}</span>
+            </label>`).join('')
+        : '<div class="tag-manage-empty">기록이 없습니다</div>';
+    updateExportCount();
+}
+
+window.toggleExportTx = (index, checked) => {
+    if (checked) selected.add(index);
+    else selected.delete(index);
+    updateExportCount();
+};
+
+window.exportSelectAll = () => {
+    selected = new Set(exportList.map((_, i) => i));
+    renderExportList();
+};
+
+window.exportDeselectAll = () => {
+    selected = new Set();
+    renderExportList();
+};
+
+window.exportSelectPeriod = () => {
+    const from = document.getElementById('export-date-from').value;
+    const to   = document.getElementById('export-date-to').value;
+    if (!from && !to) { showToast('기간을 선택해주세요', 'warn'); return; }
+    selected = new Set(exportList
+        .map((t, i) => [t, i])
+        .filter(([t]) => (!from || t.date >= from) && (!to || t.date <= to))
+        .map(([, i]) => i));
+    renderExportList();
+};
+
+window.openDataModal = () => {
+    exportList = plannerTx();
+    selected   = new Set(exportList.map((_, i) => i)); // everything included by default
+
+    const dates = exportList.map(t => t.date).filter(Boolean);
+    document.getElementById('export-date-from').value = dates[0] || '';
+    document.getElementById('export-date-to').value   = dates[dates.length - 1] || '';
+
+    renderExportList();
+    document.getElementById('data-modal').classList.add('open');
+};
+
 // ── Export ──
 
 window.exportLedger = async (format) => {
-    const rows = plannerTx().map(txToRow);
-    if (!rows.length) { showToast('내보낼 기록이 없습니다', 'warn'); return; }
+    const rows = exportList.filter((_, i) => selected.has(i)).map(txToRow);
+    if (!rows.length) { showToast('내보낼 기록을 선택해주세요', 'warn'); return; }
 
     try {
         if (format === 'csv') {
@@ -213,8 +280,4 @@ window.importLedgerFile = async (input) => {
         console.error(e);
         showToast('가져오기 실패 (파일 형식을 확인해주세요)', 'error');
     }
-};
-
-window.openDataModal = () => {
-    document.getElementById('data-modal').classList.add('open');
 };

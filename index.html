@@ -352,6 +352,18 @@
             </div>
             <div class="form-row">
                 <label class="form-label">현재 플래너 기록 내보내기</label>
+                <div class="export-range-row">
+                    <input class="form-input" type="date" id="export-date-from">
+                    <span class="export-range-sep">~</span>
+                    <input class="form-input" type="date" id="export-date-to">
+                    <button class="data-mini-btn" onclick="exportSelectPeriod()">기간 선택</button>
+                </div>
+                <div class="export-select-row">
+                    <button class="data-mini-btn" onclick="exportSelectAll()">전체 선택</button>
+                    <button class="data-mini-btn" onclick="exportDeselectAll()">전체 해제</button>
+                    <span class="export-count" id="export-count"></span>
+                </div>
+                <div class="export-tx-list" id="export-tx-list"></div>
                 <div class="data-btn-row">
                     <button class="data-format-btn" onclick="exportLedger('csv')">.csv</button>
                     <button class="data-format-btn" onclick="exportLedger('xlsx')">.xlsx</button>
