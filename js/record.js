@@ -6,15 +6,16 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 export function updateSubCategoryOptions() {
-    const catEl    = document.getElementById('tx-cat');
-    const subCatEl = document.getElementById('tx-subcat');
-    if (!catEl || !subCatEl) return;
+    const catEl     = document.getElementById('tx-cat');
+    const subCatEl  = document.getElementById('tx-subcat');
+    const subCatRow = document.getElementById('subcat-row');
+    if (!catEl || !subCatEl || !subCatRow) return;
 
     const selectedCat = catEl.value;
     const type        = document.querySelector('.type-btn.active')?.dataset.type;
 
     if (type !== 'expense' || !selectedCat || !state.currentPlanner) {
-        subCatEl.style.display = 'none';
+        subCatRow.style.display = 'none';
         subCatEl.innerHTML = '<option value="">세부 항목 (선택)</option>';
         return;
     }
@@ -25,7 +26,7 @@ export function updateSubCategoryOptions() {
 
     subCatEl.innerHTML = '<option value="">세부 항목 (선택)</option>';
     if (subCatKeys.length > 0) {
-        subCatEl.style.display = 'block';
+        subCatRow.style.display = '';
         subCatKeys.forEach(sub => {
             const option = document.createElement('option');
             option.value = sub;
@@ -33,7 +34,7 @@ export function updateSubCategoryOptions() {
             subCatEl.appendChild(option);
         });
     } else {
-        subCatEl.style.display = 'none';
+        subCatRow.style.display = 'none';
     }
 }
 
