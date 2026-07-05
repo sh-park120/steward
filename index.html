@@ -112,6 +112,7 @@
                         <option value="income">수입만</option>
                         <option value="expense">지출만</option>
                     </select>
+                    <button class="data-io-btn" onclick="openDataModal()">⇅ 데이터</button>
                 </div>
                 <div id="tag-filter-row" class="tag-filter-row"></div>
                 <div class="summary-strip">
@@ -339,6 +340,31 @@
                 <button class="btn-submit tag-create-btn" onclick="createTag()">추가</button>
             </div>
             <div id="tag-manage-list"></div>
+        </div>
+    </div>
+
+    <!-- ── DATA EXPORT / IMPORT MODAL ── -->
+    <div class="modal-overlay" id="data-modal" onclick="if(event.target===this)closeModal('data-modal')">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">데이터 내보내기 / 가져오기</div>
+                <button class="modal-close" onclick="closeModal('data-modal')">✕</button>
+            </div>
+            <div class="form-row">
+                <label class="form-label">현재 플래너 기록 내보내기</label>
+                <div class="data-btn-row">
+                    <button class="data-format-btn" onclick="exportLedger('csv')">.csv</button>
+                    <button class="data-format-btn" onclick="exportLedger('xlsx')">.xlsx</button>
+                </div>
+            </div>
+            <div class="form-row">
+                <label class="form-label">가져오기 (현재 플래너로 추가됩니다)</label>
+                <input type="file" id="import-file-input" accept=".csv,.xlsx"
+                       style="display:none" onchange="importLedgerFile(this)">
+                <button class="btn-submit" onclick="document.getElementById('import-file-input').click()">
+                    파일 선택 (.csv / .xlsx)
+                </button>
+            </div>
         </div>
     </div>
 

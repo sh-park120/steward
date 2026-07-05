@@ -299,6 +299,24 @@ body {
 .ledger-controls {
   display: flex; gap: 10px; margin-bottom: 16px; align-items: center;
 }
+.data-io-btn {
+  margin-left: auto;
+  background: transparent; border: 1.5px solid var(--border);
+  color: var(--muted); border-radius: 8px; padding: 7px 12px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif; white-space: nowrap;
+  transition: all 0.15s;
+}
+.data-io-btn:hover { border-color: var(--accent); color: var(--accent2); }
+.data-btn-row { display: flex; gap: 8px; }
+.data-format-btn {
+  flex: 1; background: var(--surface2); border: 1.5px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 12px 0;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.15s;
+}
+.data-format-btn:hover { border-color: var(--accent); color: var(--accent2); }
 .filter-sel {
   background: var(--surface); border: 1.5px solid var(--border);
   border-radius: 8px; padding: 8px 10px; color: var(--text);
