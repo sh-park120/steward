@@ -185,6 +185,33 @@ window.exportLedger = async (format) => {
     }
 };
 
+// ── Import sample files ──
+
+const SAMPLE_ROWS = [
+    { date: '2026-07-01', type: 'expense', category: '식비',   subCategory: '외식', amount: 15000,   description: '점심 식사', tags: '회사|점심' },
+    { date: '2026-07-02', type: 'expense', category: '교통',   subCategory: '',     amount: 1550,    description: '지하철',    tags: '통근' },
+    { date: '2026-07-03', type: 'expense', category: '쇼핑',   subCategory: '',     amount: 32000,   description: '',          tags: '' },
+    { date: '2026-07-05', type: 'income',  category: '월급',   subCategory: '',     amount: 3000000, description: '7월 급여',  tags: '' }
+];
+
+window.downloadImportSample = async (format) => {
+    try {
+        if (format === 'csv') {
+            downloadBlob(new Blob([toCsv(SAMPLE_ROWS)], { type: 'text/csv;charset=utf-8' }),
+                '가계부_가져오기_샘플.csv');
+        } else {
+            const XLSX = await loadXlsx();
+            const ws = XLSX.utils.json_to_sheet(SAMPLE_ROWS, { header: COLUMNS });
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '가계부');
+            XLSX.writeFile(wb, '가계부_가져오기_샘플.xlsx');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('샘플 다운로드 실패', 'error');
+    }
+};
+
 // ── Import ──
 
 const TYPE_MAP = { income: 'income', '수입': 'income', expense: 'expense', '지출': 'expense' };
@@ -252,13 +279,34 @@ window.importLedgerFile = async (input) => {
             return;
         }
 
-        const txs = raws.map(normalizeRow).filter(Boolean);
-        const skipped = raws.length - txs.length;
-        if (!txs.length) { showToast('가져올 수 있는 기록이 없습니다', 'warn'); return; }
+        let txs = raws.map(normalizeRow).filter(Boolean);
+        const invalid = raws.length - txs.length;
 
+        // Duplicate check against logs already in this planner (and within the file)
+        let dups = 0;
+        if (document.getElementById('import-skip-dup')?.checked) {
+            const txKey = t => [t.date, t.type, t.amount, t.category,
+                t.subCategory || '', t.description].join('|');
+            const seen = new Set(plannerTx().map(txKey));
+            txs = txs.filter(t => {
+                const key = txKey(t);
+                if (seen.has(key)) { dups++; return false; }
+                seen.add(key);
+                return true;
+            });
+        }
+
+        if (!txs.length) {
+            showToast(dups ? '모두 이미 존재하는 기록입니다' : '가져올 수 있는 기록이 없습니다', 'warn');
+            return;
+        }
+
+        const notes = [];
+        if (dups)    notes.push(`이미 존재하는 ${dups}건 제외`);
+        if (invalid) notes.push(`형식이 맞지 않는 ${invalid}건 제외`);
         const planner = state.currentPlanner;
         if (!confirm(`${txs.length}건의 기록을 '${planner.name}' 플래너로 가져오시겠습니까?`
-            + (skipped ? `\n(형식이 맞지 않는 ${skipped}건은 제외됩니다)` : ''))) return;
+            + (notes.length ? `\n(${notes.join(', ')})` : ''))) return;
 
         // Firestore caps a batch at 500 writes
         for (let i = 0; i < txs.length; i += 500) {
@@ -275,7 +323,8 @@ window.importLedgerFile = async (input) => {
         }
 
         if (window.closeModal) window.closeModal('data-modal');
-        showToast(`${txs.length}건 가져오기 완료!${skipped ? ` (${skipped}건 제외)` : ''}`);
+        const excluded = dups + invalid;
+        showToast(`${txs.length}건 가져오기 완료!${excluded ? ` (${excluded}건 제외)` : ''}`);
     } catch (e) {
         console.error(e);
         showToast('가져오기 실패 (파일 형식을 확인해주세요)', 'error');

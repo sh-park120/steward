@@ -309,6 +309,16 @@ body {
 }
 .data-io-btn:hover { border-color: var(--accent); color: var(--accent2); }
 .data-btn-row { display: flex; gap: 8px; margin-top: 10px; }
+.import-dup-row {
+  display: flex; gap: 6px; align-items: center;
+  color: var(--muted); font-size: 12px; cursor: pointer;
+  margin-bottom: 8px;
+}
+.import-dup-row input[type="checkbox"] { accent-color: var(--accent); }
+.import-sample-row {
+  display: flex; gap: 6px; align-items: center;
+  color: var(--muted); font-size: 12px; margin-top: 10px;
+}
 .export-range-row {
   display: flex; gap: 6px; align-items: center; margin-bottom: 8px;
 }
