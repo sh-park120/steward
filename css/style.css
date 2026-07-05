@@ -399,6 +399,7 @@ body {
 /* MODAL TAG SELECT */
 .modal-tag-select { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-manage-open { border-style: dashed; }
+.tag-select-empty { color: var(--muted); font-size: 12px; }
 
 /* TAG MANAGE MODAL */
 .tag-create-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }

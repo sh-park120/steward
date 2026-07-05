@@ -1,5 +1,6 @@
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from './constants.js';
 import { getAllTags } from './tags.js';
+import { filters } from './state.js';
 
 let modalTags = [];
 
@@ -12,12 +13,12 @@ window.renderModalTagSelect = () => {
     if (!container) return;
     // Include already-selected tags even if they left the managed list
     tagSelectList = [...new Set([...getAllTags(), ...modalTags])];
-    container.innerHTML =
-        tagSelectList.map((tag, i) =>
+    container.innerHTML = tagSelectList.length
+        ? tagSelectList.map((tag, i) =>
             `<button type="button" class="tag-filter-chip${modalTags.includes(tag) ? ' active' : ''}"
                      onclick="toggleModalTag(${i})">${tag}</button>`
-        ).join('') +
-        `<button type="button" class="tag-filter-chip tag-manage-open" onclick="openTagManageModal()">⚙️ 태그 관리</button>`;
+          ).join('')
+        : '<span class="tag-select-empty">가계부 탭의 ⚙️ 태그 관리에서 태그를 만들 수 있어요</span>';
 };
 
 window.toggleModalTag = (index) => {
@@ -55,7 +56,8 @@ window.openAddModal = () => {
     document.getElementById('tx-amount').value = '';
     document.getElementById('tx-desc').value   = '';
     document.getElementById('tx-date').value   = new Date().toISOString().slice(0, 10);
-    modalTags = [];
+    // Pre-select the tags currently active in the ledger filter
+    modalTags = [...filters.ledger.tags];
     window.renderModalTagSelect();
     window.setTxType('expense');
     if (window.updateCatOptions) window.updateCatOptions();

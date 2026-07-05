@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { state } from './state.js';
+import { state, filters } from './state.js';
 import { showToast } from './utils.js';
 import {
     collection, doc, getDocs, updateDoc, writeBatch,
@@ -93,9 +93,13 @@ window.renameTag = async (index) => {
         await saveProfileTags([...managed, newName]);
         await propagateTagChange(oldName, newName);
 
+        // Keep the ledger tag filter in sync if it was filtering by the old name
+        if (filters.ledger.tags.delete(oldName)) filters.ledger.tags.add(newName);
+
         if (window.replaceModalTag) window.replaceModalTag(oldName, newName);
         renderTagManageList();
         if (window.renderModalTagSelect) window.renderModalTagSelect();
+        if (window.refreshAll) window.refreshAll();
         showToast(`'${newName}'(으)로 변경되었습니다!`);
     } catch (e) {
         console.error(e);
@@ -112,9 +116,12 @@ window.deleteTag = async (index) => {
         await saveProfileTags((state.currentProfile.tags || []).filter(t => t !== name));
         await propagateTagChange(name, null);
 
+        filters.ledger.tags.delete(name);
+
         if (window.replaceModalTag) window.replaceModalTag(name, null);
         renderTagManageList();
         if (window.renderModalTagSelect) window.renderModalTagSelect();
+        if (window.refreshAll) window.refreshAll();
         showToast('태그가 삭제되었습니다.', 'warn');
     } catch (e) {
         console.error(e);

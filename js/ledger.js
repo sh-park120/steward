@@ -50,15 +50,17 @@ function renderMonthNav() {
 function renderTagFilter(allTags) {
     const el = document.getElementById('tag-filter-row');
     if (!el) return;
-    if (allTags.length === 0) { el.innerHTML = ''; return; }
     const isAll = filters.ledger.tags.size === 0;
-    el.innerHTML =
-        `<button class="tag-filter-chip${isAll ? ' active' : ''}" onclick="setTagFilter(null)">전체</button>` +
-        allTags.map(tag => {
-            const active  = filters.ledger.tags.has(tag);
-            const escaped = tag.replace(/'/g, "\\'");
-            return `<button class="tag-filter-chip${active ? ' active' : ''}" onclick="setTagFilter('${escaped}')">${tag}</button>`;
-        }).join('');
+    const chipsHtml = allTags.length
+        ? `<button class="tag-filter-chip${isAll ? ' active' : ''}" onclick="setTagFilter(null)">전체</button>` +
+          allTags.map(tag => {
+              const active  = filters.ledger.tags.has(tag);
+              const escaped = tag.replace(/'/g, "\\'");
+              return `<button class="tag-filter-chip${active ? ' active' : ''}" onclick="setTagFilter('${escaped}')">${tag}</button>`;
+          }).join('')
+        : '';
+    el.innerHTML = chipsHtml +
+        `<button class="tag-filter-chip tag-manage-open" onclick="openTagManageModal()">⚙️ 태그 관리</button>`;
 }
 
 export function renderLedger() {
