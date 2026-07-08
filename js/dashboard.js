@@ -1,24 +1,19 @@
-import { state, filters }                     from './state.js';
+import { state, filters, txInPlanner }        from './state.js';
 import { fmt, ymToDisplay }                   from './utils.js';
 import { EXPENSE_CATEGORIES, getCatColor }    from './constants.js';
 import { buildDonutSlices, buildDonutSVGCircles } from './charts.js';
 
 function getAvailableDashMonths() {
     if (!state.currentPlanner) return [];
-    const pid = state.currentPlanner.id;
-    const plannerTx = state.transactions.filter(t =>
-        t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
-    );
+    const plannerTx = state.transactions.filter(t => txInPlanner(t, state.currentPlanner));
     const monthSet = new Set(plannerTx.map(t => t.date?.slice(0, 7)).filter(Boolean));
     return [...monthSet].sort().reverse();
 }
 
 function getPlannerExpenses() {
     if (!state.currentPlanner) return [];
-    const pid = state.currentPlanner.id;
-    const isDefault = state.currentPlanner.isDefault;
     return state.transactions.filter(t =>
-        (t.plannerId === pid || (!t.plannerId && isDefault)) && t.type === 'expense'
+        txInPlanner(t, state.currentPlanner) && t.type === 'expense'
     );
 }
 
@@ -294,11 +289,7 @@ export function renderDashboard() {
         return;
     }
 
-    const pid       = state.currentPlanner.id;
-    const isDefault = state.currentPlanner.isDefault;
-    const plannerTx = state.transactions.filter(t =>
-        t.plannerId === pid || (!t.plannerId && isDefault)
-    );
+    const plannerTx = state.transactions.filter(t => txInPlanner(t, state.currentPlanner));
 
     const income  = plannerTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = plannerTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -354,10 +345,8 @@ export function renderDashboard() {
 
 window.showCatTxModal = (cat, month) => {
     if (!state.currentPlanner) return;
-    const pid       = state.currentPlanner.id;
-    const isDefault = state.currentPlanner.isDefault;
     let txList = state.transactions.filter(t =>
-        (t.plannerId === pid || (!t.plannerId && isDefault)) &&
+        txInPlanner(t, state.currentPlanner) &&
         t.type === 'expense' && t.category === cat
     );
     if (month) txList = txList.filter(t => t.date?.startsWith(month));

@@ -1,4 +1,4 @@
-import { state, filters }                        from './state.js';
+import { state, filters, txInPlanner }           from './state.js';
 import { fmt, ymToDisplay, shiftMonth, todayYM } from './utils.js';
 
 window.openEditTx = (id) => {
@@ -10,10 +10,7 @@ let ledgerView = 'row';
 
 function getAvailableMonths() {
     if (!state.currentPlanner) return [];
-    const pid = state.currentPlanner.id;
-    const plannerTx = state.transactions.filter(t =>
-        t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
-    );
+    const plannerTx = state.transactions.filter(t => txInPlanner(t, state.currentPlanner));
     const monthSet = new Set(plannerTx.map(t => t.date?.slice(0, 7)).filter(Boolean));
     return [...monthSet].sort().reverse();
 }
@@ -72,12 +69,7 @@ export function renderLedger() {
         return;
     }
 
-    const pid       = state.currentPlanner.id;
-    const isDefault = state.currentPlanner.isDefault;
-
-    let txList = state.transactions.filter(t =>
-        t.plannerId === pid || (!t.plannerId && isDefault)
-    );
+    let txList = state.transactions.filter(t => txInPlanner(t, state.currentPlanner));
 
     const ym = filters.ledger.month;
     if (ym) txList = txList.filter(t => t.date?.startsWith(ym));

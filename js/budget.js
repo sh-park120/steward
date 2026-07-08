@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { state, filters } from './state.js';
+import { state, filters, txInPlanner } from './state.js';
 import { fmt, parseAmount, showToast, todayYM, shiftMonth, ymToDisplay } from './utils.js';
 import { EXPENSE_CATEGORIES, getCatColor } from './constants.js';
 import { buildDonutSlices, buildDonutSVGCircles } from './charts.js';
@@ -12,10 +12,7 @@ let budgetView   = 'row';
 
 function getAvailableBudgetMonths() {
     if (!state.currentPlanner) return [];
-    const pid = state.currentPlanner.id;
-    const plannerTx = state.transactions.filter(t =>
-        t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
-    );
+    const plannerTx = state.transactions.filter(t => txInPlanner(t, state.currentPlanner));
     const monthSet = new Set(plannerTx.map(t => t.date?.slice(0, 7)).filter(Boolean));
     return [...monthSet].sort().reverse();
 }
@@ -108,9 +105,7 @@ export function renderBudget() {
     }
 
     const pid = state.currentPlanner.id;
-    let plannerTx = state.transactions.filter(t =>
-        t.plannerId === pid || (!t.plannerId && state.currentPlanner.isDefault)
-    );
+    let plannerTx = state.transactions.filter(t => txInPlanner(t, state.currentPlanner));
 
     const ym = filters.budget.month;
     if (ym) plannerTx = plannerTx.filter(t => t.date?.startsWith(ym));

@@ -1,5 +1,5 @@
 import { db } from './firebase.js';
-import { state } from './state.js';
+import { state, txInPlanner } from './state.js';
 import { showToast } from './utils.js';
 import {
     collection, doc, writeBatch, serverTimestamp
@@ -13,7 +13,7 @@ function plannerTx() {
     const p = state.currentPlanner;
     if (!p) return [];
     return state.transactions
-        .filter(t => t.plannerId === p.id || (!t.plannerId && p.isDefault))
+        .filter(t => txInPlanner(t, p))
         .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 }
 
